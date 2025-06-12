@@ -1,27 +1,14 @@
-from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
-LEGAL_CATEGORIES = [
-    "أحوال شخصية",
-    "عقارات",
-    "عمل",
-    "جنائي",
-    "مرور",
-    "أخرى"
-]
+def get_categories_markup(CATEGORIES):
+    return ReplyKeyboardMarkup([[cat] for cat in CATEGORIES.keys()] + [["اشتراك شهري", "حول البوت"]], resize_keyboard=True)
 
-MAIN_MENU = [[cat] for cat in LEGAL_CATEGORIES] + [["اشتراك شهري (أسئلة غير محدودة)"]]
-
-BACK_TO_MENU = [[KeyboardButton("العودة إلى القائمة الرئيسية")]]
-ONLY_BACK_MARKUP = ReplyKeyboardMarkup(BACK_TO_MENU, resize_keyboard=True)
 def get_questions_markup(questions):
-    return ReplyKeyboardMarkup([[q] for q in questions] + BACK_TO_MENU, resize_keyboard=True)
+    return ReplyKeyboardMarkup([[q] for q in questions] + [["رجوع"]], resize_keyboard=True)
 
 def get_payment_markup():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("تم التحويل", callback_data="paid")]
-    ])
-
-def get_subscribe_markup():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("تم الاشتراك", callback_data="sub_paid")]
+        [InlineKeyboardButton("تم التحويل", callback_data="paid")],
+        [InlineKeyboardButton("اشتراك شهري", callback_data="subscribe")],
+        [InlineKeyboardButton("رجوع", callback_data="back")]
     ])
