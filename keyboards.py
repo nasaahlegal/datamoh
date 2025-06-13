@@ -10,6 +10,14 @@ def get_categories_markup(categories):
 def get_main_menu_markup(categories):
     return get_categories_markup(categories)
 
+def get_back_main_markup():
+    # فقط زر رجوع والقائمة الرئيسية
+    return ReplyKeyboardMarkup([["رجوع", "القائمة الرئيسية"]], resize_keyboard=True)
+
+def get_about_markup():
+    # فقط زر القائمة الرئيسية
+    return ReplyKeyboardMarkup([["القائمة الرئيسية"]], resize_keyboard=True)
+
 def get_payment_markup():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("تم التحويل", callback_data="paid")],

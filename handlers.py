@@ -8,7 +8,8 @@ from config import (
 )
 from keyboards import (
     get_categories_markup, get_main_menu_markup, get_payment_markup,
-    get_subscribe_confirm_markup, get_admin_payment_action_markup
+    get_subscribe_confirm_markup, get_admin_payment_action_markup,
+    get_back_main_markup, get_about_markup
 )
 from users import (
     create_or_get_user, decrement_free_questions, reset_free_questions,
@@ -46,7 +47,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
             "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
-            reply_markup=None
+            reply_markup=get_back_main_markup()
         )
         return CHOOSE_QUESTION
     elif cat == "اشتراك شهري":
@@ -58,7 +59,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif cat == "عن المنصة":
         await update.message.reply_text(
             ABOUT_MSG,
-            reply_markup=get_main_menu_markup(CATEGORIES)
+            reply_markup=get_about_markup()
         )
         return CHOOSE_CATEGORY
     else:
@@ -79,7 +80,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     except Exception:
         await update.message.reply_text(
             "الرجاء إرسال رقم صحيح من القائمة.",
-            reply_markup=None
+            reply_markup=get_back_main_markup()
         )
         return CHOOSE_QUESTION
     question = questions[idx]
@@ -91,7 +92,8 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text(
             f"لديك اشتراك فعال. متبقي لك {days_left} يوم من الاشتراك.\n"
             "هل تريد الحصول على الجواب الآن؟\n"
-            "ارسل (نعم) أو (رجوع) أو (القائمة الرئيسية)."
+            "ارسل (نعم) أو (رجوع) أو (القائمة الرئيسية).",
+            reply_markup=get_back_main_markup()
         )
         context.user_data["awaiting_subscribed_answer"] = True
         return FREE_OR_SUB_CONFIRM
@@ -100,7 +102,8 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text(
             f"لديك {user_info['free_questions_left']} سؤال مجاني متبقٍ.\n"
             "هل ترغب باستخدام سؤال مجاني للحصول على الجواب؟\n"
-            "ارسل (نعم) أو (رجوع) أو (القائمة الرئيسية)."
+            "ارسل (نعم) أو (رجوع) أو (القائمة الرئيسية).",
+            reply_markup=get_back_main_markup()
         )
         context.user_data["awaiting_free_answer"] = True
         return FREE_OR_SUB_CONFIRM
@@ -112,7 +115,6 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         return WAIT_PAYMENT
 
 async def free_or_sub_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # هذه الدالة لن تُستخدم مباشرة بل من خلال confirm_free_or_sub_use_handler أدناه.
     pass
 
 async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
