@@ -37,17 +37,24 @@ def get_user(user_id):
             "sub_expiry": row[3] or 0,
             "free_questions_left": row[4] if row[4] is not None else 3
         }
-    return None
+    return {
+        "user_id": user_id,
+        "username": "",
+        "full_name": "",
+        "sub_expiry": 0,
+        "free_questions_left": 3
+    }
 
 def create_or_get_user(user_id, username, full_name):
     user = get_user(user_id)
-    if user:
+    if user and user["free_questions_left"] is not None:
         return user
     now = int(time.time())
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO users (user_id, username, full_name, created_at) VALUES (%s, %s, %s, %s)",
+        "INSERT INTO users (user_id, username, full_name, created_at) VALUES (%s, %s, %s, %s) "
+        "ON CONFLICT (user_id) DO NOTHING",
         (user_id, username, full_name, now)
     )
     conn.commit()

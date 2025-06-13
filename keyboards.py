@@ -1,15 +1,27 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
 def get_categories_markup(categories):
-    return ReplyKeyboardMarkup([[cat] for cat in categories.keys()] + [["اشتراك شهري", "عن البوت"]], resize_keyboard=True)
+    # زرين في كل صف + زر القائمة الرئيسية
+    keys = list(categories.keys())
+    markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
+    markup_arr.append(["اشتراك شهري", "عن المنصة"])
+    markup_arr.append(["القائمة الرئيسية"])
+    return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
 
-def get_questions_markup(questions):
-    return ReplyKeyboardMarkup([[q] for q in questions] + [["رجوع"]], resize_keyboard=True)
+def get_main_menu_markup(categories):
+    # نفس دالة التصنيفات
+    return get_categories_markup(categories)
 
 def get_payment_markup():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("تم التحويل", callback_data="paid")],
-        [InlineKeyboardButton("إلغاء", callback_data="cancel")]
+        [InlineKeyboardButton("رجوع", callback_data="back")]
+    ])
+
+def get_subscribe_confirm_markup():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("قبول الاشتراك", callback_data="sub_accept")],
+        [InlineKeyboardButton("رجوع", callback_data="sub_cancel")]
     ])
 
 def get_admin_payment_action_markup(user_id):
