@@ -7,7 +7,7 @@ from config import (
     PAY_ACCOUNT_MSG
 )
 from keyboards import (
-    get_categories_markup, get_main_menu_markup, get_payment_markup,
+    get_categories_markup, get_main_menu_markup, get_payment_reply_markup,
     get_subscribe_confirm_markup, get_admin_payment_action_markup,
     get_back_main_markup, get_about_markup, get_free_confirm_markup
 )
@@ -108,7 +108,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     else:
         await update.message.reply_text(
             SINGLE_PAY_MSG,
-            reply_markup=get_payment_markup()
+            reply_markup=get_payment_reply_markup()
         )
         return WAIT_PAYMENT
 
@@ -160,28 +160,49 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     return CHOOSE_QUESTION
 
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user = query.from_user
-    await query.answer()
-    if query.data == "paid":
-        pending_answer = context.user_data.get("pending_answer", None)
-        await query.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
-        await context.bot.send_message(
-            chat_id=ADMIN_TELEGRAM_ID,
-            text=f"طلب دفع لسؤال:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}\nالسؤال: {pending_answer}",
-            reply_markup=get_admin_payment_action_markup(f"{user.id}_q")
-        )
-        context.user_data.pop("pending_answer", None)
-        return ConversationHandler.END
-    elif query.data == "back" or query.data == "sub_cancel":
-        await query.message.reply_text(
-            "تم الرجوع إلى القائمة الرئيسية.",
-            reply_markup=get_main_menu_markup(CATEGORIES)
-        )
-        return CHOOSE_CATEGORY
+    text = None
+    if hasattr(update, "callback_query") and update.callback_query:
+        query = update.callback_query
+        user = query.from_user
+        await query.answer()
+        if query.data == "paid":
+            pending_answer = context.user_data.get("pending_answer", None)
+            await query.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
+            await context.bot.send_message(
+                chat_id=ADMIN_TELEGRAM_ID,
+                text=f"طلب دفع لسؤال:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}\nالسؤال: {pending_answer}",
+                reply_markup=get_admin_payment_action_markup(f"{user.id}_q")
+            )
+            context.user_data.pop("pending_answer", None)
+            return ConversationHandler.END
+        elif query.data == "back" or query.data == "sub_cancel":
+            await query.message.reply_text(
+                "تم الرجوع إلى القائمة الرئيسية.",
+                reply_markup=get_main_menu_markup(CATEGORIES)
+            )
+            return CHOOSE_CATEGORY
+        else:
+            await query.message.reply_text("حدث خطأ! يرجى المحاولة مرة أخرى.")
+            return ConversationHandler.END
     else:
-        await query.message.reply_text("حدث خطأ! يرجى المحاولة مرة أخرى.")
-        return ConversationHandler.END
+        # التعامل مع زر "تم التحويل" كـ ReplyKeyboard
+        user = update.effective_user
+        if update.message.text == "تم التحويل":
+            pending_answer = context.user_data.get("pending_answer", None)
+            await update.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
+            await update.get_bot().send_message(
+                chat_id=ADMIN_TELEGRAM_ID,
+                text=f"طلب دفع لسؤال:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}\nالسؤال: {pending_answer}",
+                reply_markup=get_admin_payment_action_markup(f"{user.id}_q")
+            )
+            context.user_data.pop("pending_answer", None)
+            return ConversationHandler.END
+        elif update.message.text in ["رجوع", "القائمة الرئيسية"]:
+            await main_menu_handler(update, context)
+            return CHOOSE_CATEGORY
+        else:
+            await update.message.reply_text("يرجى استخدام الأزرار فقط.", reply_markup=get_payment_reply_markup())
+            return WAIT_PAYMENT
 
 async def monthly_subscribe_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # عند الضغط على اشتراك شهري تظهر فقط (اكمال الاشتراك) و(الغاء)
@@ -203,12 +224,7 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
         if data == "sub_accept":
             await query.message.reply_text(
                 PAY_ACCOUNT_MSG,
-                reply_markup=get_payment_markup()
-            )
-            # تظهر بعدها أزرار (رجوع، القائمة الرئيسية) فقط
-            await query.message.reply_text(
-                "يمكنك العودة للقائمة أو الرجوع:",
-                reply_markup=get_back_main_markup()
+                reply_markup=get_payment_reply_markup()
             )
             return WAIT_PAYMENT
         elif data == "sub_cancel":
@@ -222,12 +238,7 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
         if text == "اكمال الاشتراك":
             await update.message.reply_text(
                 PAY_ACCOUNT_MSG,
-                reply_markup=get_payment_markup()
-            )
-            # تظهر بعدها أزرار (رجوع، القائمة الرئيسية) فقط
-            await update.message.reply_text(
-                "يمكنك العودة للقائمة أو الرجوع:",
-                reply_markup=get_back_main_markup()
+                reply_markup=get_payment_reply_markup()
             )
             return WAIT_PAYMENT
         elif text == "الغاء":

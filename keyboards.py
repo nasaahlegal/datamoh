@@ -18,11 +18,12 @@ def get_about_markup():
     # فقط زر القائمة الرئيسية
     return ReplyKeyboardMarkup([["القائمة الرئيسية"]], resize_keyboard=True)
 
-def get_payment_markup():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("تم التحويل", callback_data="paid")],
-        [InlineKeyboardButton("رجوع", callback_data="back")]
-    ])
+def get_payment_reply_markup():
+    # زر تم التحويل مع رجوع والقائمة الرئيسية كـ ReplyKeyboard
+    return ReplyKeyboardMarkup(
+        [["تم التحويل"], ["رجوع", "القائمة الرئيسية"]],
+        resize_keyboard=True
+    )
 
 def get_subscribe_confirm_markup():
     # فقط زر قبول وزر إلغاء
