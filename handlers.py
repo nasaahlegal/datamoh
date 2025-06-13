@@ -18,13 +18,12 @@ from users import (
 )
 import time
 import datetime
+import re
 
 CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, MAIN_MENU, SUBSCRIBE_CONFIRM, FREE_OR_SUB_CONFIRM = range(6)
 
-def arabic_to_english_digits(s):
-    # يحول الأرقام العربية الهندية (٠١٢٣٤٥٦٧٨٩) إلى أرقام إنجليزية
-    mapping = str.maketrans('٠١٢٣٤٥٦٧٨٩', '0123456789')
-    return s.translate(mapping)
+def contains_arabic_digits(text):
+    return bool(re.search(r'[٠-٩]', text))
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -83,9 +82,14 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     user_info = get_user(user.id)
     questions = context.user_data.get("questions", [])
 
-    # دعم الأرقام العربية والإنجليزية
     user_input = update.message.text.strip()
-    user_input = arabic_to_english_digits(user_input)
+    # إذا كان الرقم يحتوي أرقام عربية، أرسل رسالة تنبيه
+    if contains_arabic_digits(user_input):
+        await update.message.reply_text(
+            "يرجى إرسال رقم السؤال باستخدام الأرقام الإنجليزية فقط (مثال: 1 أو 2 أو 3 ...)",
+            reply_markup=get_back_main_markup()
+        )
+        return CHOOSE_QUESTION
 
     try:
         idx = int(user_input) - 1

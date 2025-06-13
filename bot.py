@@ -37,7 +37,7 @@ def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, category_handler),
             ],
             CHOOSE_QUESTION: [
-                MessageHandler(filters.Regex("^[0-9٠-٩]+$"), question_number_handler),
+                MessageHandler(filters.Regex("^[0-9]+$"), question_number_handler),
                 MessageHandler(filters.Regex("^(رجوع|القائمة الرئيسية)$"), main_menu_handler),
             ],
             FREE_OR_SUB_CONFIRM: [
@@ -63,7 +63,8 @@ def main():
     )
     app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(admin_action_handler, pattern="^(approve_sub_|reject_sub_).+"))
-    app.add_handler(CommandHandler("قائمة", admin_list_subscribers_handler))
+    app.add_handler(CommandHandler("list", admin_list_subscribers_handler))
+    app.add_handler(MessageHandler(filters.Regex("^(قائمة)$"), admin_list_subscribers_handler))
     app.add_handler(CallbackQueryHandler(admin_manage_subscriber_callback, pattern="^admin_"))
     app.run_polling()
 
