@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes, ConversationHandler
 from config import (
     CATEGORIES, ANSWERS, FREE_QUESTIONS_LIMIT, QUESTION_PRICE,
@@ -13,11 +13,18 @@ from keyboards import (
 )
 from users import (
     create_or_get_user, decrement_free_questions, reset_free_questions,
-    set_subscription, is_subscribed, get_user, get_subscription_expiry
+    set_subscription, is_subscribed, get_user, get_subscription_expiry,
+    get_all_active_subscribers, remove_subscription, ban_user
 )
 import time
+import datetime
 
 CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, MAIN_MENU, SUBSCRIBE_CONFIRM, FREE_OR_SUB_CONFIRM = range(6)
+
+def arabic_to_english_digits(s):
+    # يحول الأرقام العربية الهندية (٠١٢٣٤٥٦٧٨٩) إلى أرقام إنجليزية
+    mapping = str.maketrans('٠١٢٣٤٥٦٧٨٩', '0123456789')
+    return s.translate(mapping)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -51,9 +58,11 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return CHOOSE_QUESTION
     elif cat == "اشتراك شهري":
+        from telegram import ReplyKeyboardMarkup
+        markup = ReplyKeyboardMarkup([["اكمال الاشتراك"], ["الغاء"]], resize_keyboard=True)
         await update.message.reply_text(
             PAY_MSG,
-            reply_markup=get_subscribe_confirm_markup()
+            reply_markup=markup
         )
         return SUBSCRIBE_CONFIRM
     elif cat == "عن المنصة":
@@ -73,8 +82,13 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     user = update.effective_user
     user_info = get_user(user.id)
     questions = context.user_data.get("questions", [])
+
+    # دعم الأرقام العربية والإنجليزية
+    user_input = update.message.text.strip()
+    user_input = arabic_to_english_digits(user_input)
+
     try:
-        idx = int(update.message.text) - 1
+        idx = int(user_input) - 1
         if idx < 0 or idx >= len(questions):
             raise Exception()
     except Exception:
@@ -184,7 +198,6 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
 async def monthly_subscribe_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # عند الضغط على اشتراك شهري تظهر فقط (اكمال الاشتراك) و(الغاء)
     from telegram import ReplyKeyboardMarkup
     markup = ReplyKeyboardMarkup([["اكمال الاشتراك"], ["الغاء"]], resize_keyboard=True)
     await update.message.reply_text(
@@ -194,7 +207,6 @@ async def monthly_subscribe_handler(update: Update, context: ContextTypes.DEFAUL
     return SUBSCRIBE_CONFIRM
 
 async def confirm_subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # التعامل مع (اكمال الاشتراك) و(الغاء)
     text = None
     if hasattr(update, "callback_query") and update.callback_query:
         query = update.callback_query
@@ -265,3 +277,66 @@ async def admin_action_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             text=f"لم يتم قبول طلب الدفع. إذا كان هنالك خطأ راسل الدعم: @{SUPPORT_USERNAME}"
         )
         await query.edit_message_text("❌ تم رفض الاشتراك/الدفع لهذا المستخدم.")
+
+# ---------- Admin features ----------
+async def admin_list_subscribers_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    ADMINS = {ADMIN_TELEGRAM_ID, 8109994800}
+    if user_id not in ADMINS:
+        await update.message.reply_text("❌ غير مصرح لك باستخدام هذا الأمر.")
+        return
+
+    subscribers = get_all_active_subscribers()
+    if not subscribers:
+        await update.message.reply_text("لا يوجد مشتركين نشطين حالياً.")
+        return
+
+    for sub in subscribers:
+        name = sub["full_name"] or "-"
+        username = sub["username"] or "-"
+        uid = sub["user_id"]
+        expiry = sub["sub_expiry"]
+        expiry_human = datetime.datetime.fromtimestamp(expiry).strftime('%Y-%m-%d')
+        text = f"👤 الاسم: {name}\nمعرف المستخدم: @{username}\nID: {uid}\nانتهاء الاشتراك: {expiry_human}"
+        markup = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("حذف الاشتراك", callback_data=f"admin_remove_sub_{uid}"),
+                InlineKeyboardButton("حظر المستخدم", callback_data=f"admin_ban_{uid}")
+            ],
+            [
+                InlineKeyboardButton("تمديد 3 أيام", callback_data=f"admin_extend_{uid}")
+            ]
+        ])
+        await update.message.reply_text(text, reply_markup=markup)
+
+async def admin_manage_subscriber_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    ADMINS = {ADMIN_TELEGRAM_ID, 8109994800}
+    if user_id not in ADMINS:
+        await query.answer("❌ غير مصرح لك.", show_alert=True)
+        return
+
+    data = query.data
+    from users import set_subscription, get_user
+    import datetime
+
+    if data.startswith("admin_remove_sub_"):
+        uid = int(data.replace("admin_remove_sub_", ""))
+        remove_subscription(uid)
+        await query.edit_message_reply_markup(None)
+        await query.message.reply_text(f"❌ تم حذف اشتراك المستخدم {uid}.")
+    elif data.startswith("admin_ban_"):
+        uid = int(data.replace("admin_ban_", ""))
+        ban_user(uid)
+        await query.edit_message_reply_markup(None)
+        await query.message.reply_text(f"🚫 تم حظر المستخدم {uid}.")
+    elif data.startswith("admin_extend_"):
+        uid = int(data.replace("admin_extend_", ""))
+        user = get_user(uid)
+        now = max(user.get("sub_expiry", 0), int(time.time()))
+        new_expiry = now + 3*24*60*60
+        set_subscription(uid, user["username"], user["full_name"], days=(new_expiry-int(time.time()))//86400)
+        dt = datetime.datetime.fromtimestamp(new_expiry).strftime('%Y-%m-%d')
+        await query.edit_message_reply_markup(None)
+        await query.message.reply_text(f"✅ تم تمديد الاشتراك للمستخدم {uid} إلى {dt}.")
