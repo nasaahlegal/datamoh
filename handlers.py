@@ -119,6 +119,7 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
     user = update.effective_user
     user_info = get_user(user.id)
     pending_answer = context.user_data.get("pending_answer")
+
     if update.message.text == "رجوع":
         # العودة لقائمة الأسئلة في التصنيف الحالي فقط
         cat = context.user_data.get("category")
@@ -130,6 +131,7 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
             "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
             reply_markup=get_back_main_markup()
         )
+        # احذف أي انتظار سابق
         context.user_data.pop("awaiting_subscribed_answer", None)
         context.user_data.pop("awaiting_free_answer", None)
         return CHOOSE_QUESTION
