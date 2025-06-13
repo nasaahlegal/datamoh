@@ -110,6 +110,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
             SINGLE_PAY_MSG,
             reply_markup=get_payment_reply_markup()
         )
+        # هنا يظهر الكيبورد الذي فيه تم التحويل + القائمة الرئيسية + رجوع
         return WAIT_PAYMENT
 
 async def free_or_sub_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -160,40 +161,8 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     return CHOOSE_QUESTION
 
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if hasattr(update, "callback_query") and update.callback_query is not None:
-        query = update.callback_query
-        user = query.from_user
-        await query.answer()
-        if query.data == "paid":
-            pending_answer = context.user_data.get("pending_answer", None)
-            is_subscription = context.user_data.get("subscription_payment", False)
-            if is_subscription:
-                await query.message.reply_text("تم إرسال طلبك وسيتم تفعيل الاشتراك بعد التأكد من التحويل.")
-                await context.bot.send_message(
-                    chat_id=ADMIN_TELEGRAM_ID,
-                    text=f"طلب اشتراك جديد:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}",
-                    reply_markup=get_admin_payment_action_markup(user.id)
-                )
-                context.user_data.pop("subscription_payment", None)
-            else:
-                await query.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
-                await context.bot.send_message(
-                    chat_id=ADMIN_TELEGRAM_ID,
-                    text=f"طلب دفع لسؤال:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}\nالسؤال: {pending_answer}",
-                    reply_markup=get_admin_payment_action_markup(f"{user.id}_q")
-                )
-                context.user_data.pop("pending_answer", None)
-            return ConversationHandler.END
-        elif query.data == "back" or query.data == "sub_cancel":
-            await query.message.reply_text(
-                "تم الرجوع إلى القائمة الرئيسية.",
-                reply_markup=get_main_menu_markup(CATEGORIES)
-            )
-            return CHOOSE_CATEGORY
-        else:
-            await query.message.reply_text("حدث خطأ! يرجى المحاولة مرة أخرى.")
-            return ConversationHandler.END
-    elif hasattr(update, "message") and update.message is not None:
+    # يدعم فقط الرسائل النصية (ReplyKeyboard) في حالة الدفع
+    if hasattr(update, "message") and update.message is not None:
         user = update.effective_user
         text = update.message.text
         if text == "تم التحويل":
@@ -245,7 +214,7 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
                 PAY_ACCOUNT_MSG,
                 reply_markup=get_payment_reply_markup()
             )
-            # تم حذف السطر الذي يرسل كيبورد آخر بعد كيبورد الدفع
+            # لا ترسل رسالة ثانية بكيبورد آخر!
             return WAIT_PAYMENT
         elif data == "sub_cancel":
             await query.message.reply_text(
@@ -261,7 +230,7 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
                 PAY_ACCOUNT_MSG,
                 reply_markup=get_payment_reply_markup()
             )
-            # تم حذف السطر الذي يرسل كيبورد آخر بعد كيبورد الدفع
+            # لا ترسل رسالة ثانية بكيبورد آخر!
             return WAIT_PAYMENT
         elif text == "الغاء":
             await update.message.reply_text(
