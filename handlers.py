@@ -160,7 +160,7 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     return CHOOSE_QUESTION
 
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = None
+    # دعم كل من CallbackQuery (القديم) وMessage (زر تم التحويل ReplyKeyboard)
     if hasattr(update, "callback_query") and update.callback_query:
         query = update.callback_query
         user = query.from_user
@@ -184,20 +184,31 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.message.reply_text("حدث خطأ! يرجى المحاولة مرة أخرى.")
             return ConversationHandler.END
-    else:
-        # التعامل مع زر "تم التحويل" كـ ReplyKeyboard
+    elif hasattr(update, "message") and update.message:
         user = update.effective_user
-        if update.message.text == "تم التحويل":
+        text = update.message.text
+        if text == "تم التحويل":
+            # تحديد ما إذا كان دفع اشتراك أم سؤال مفرد
+            is_subscription = context.user_data.get("subscription_payment", False)
             pending_answer = context.user_data.get("pending_answer", None)
-            await update.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
-            await update.get_bot().send_message(
-                chat_id=ADMIN_TELEGRAM_ID,
-                text=f"طلب دفع لسؤال:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}\nالسؤال: {pending_answer}",
-                reply_markup=get_admin_payment_action_markup(f"{user.id}_q")
-            )
-            context.user_data.pop("pending_answer", None)
+            if is_subscription:
+                await update.message.reply_text("تم إرسال طلبك وسيتم تفعيل الاشتراك بعد التأكد من التحويل.")
+                await update.get_bot().send_message(
+                    chat_id=ADMIN_TELEGRAM_ID,
+                    text=f"طلب اشتراك جديد:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}",
+                    reply_markup=get_admin_payment_action_markup(user.id)
+                )
+                context.user_data.pop("subscription_payment", None)
+            else:
+                await update.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
+                await update.get_bot().send_message(
+                    chat_id=ADMIN_TELEGRAM_ID,
+                    text=f"طلب دفع لسؤال:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}\nالسؤال: {pending_answer}",
+                    reply_markup=get_admin_payment_action_markup(f"{user.id}_q")
+                )
+                context.user_data.pop("pending_answer", None)
             return ConversationHandler.END
-        elif update.message.text in ["رجوع", "القائمة الرئيسية"]:
+        elif text in ["رجوع", "القائمة الرئيسية"]:
             await main_menu_handler(update, context)
             return CHOOSE_CATEGORY
         else:
@@ -205,7 +216,6 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return WAIT_PAYMENT
 
 async def monthly_subscribe_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # عند الضغط على اشتراك شهري تظهر فقط (اكمال الاشتراك) و(الغاء)
     from telegram import ReplyKeyboardMarkup
     markup = ReplyKeyboardMarkup([["اكمال الاشتراك"], ["الغاء"]], resize_keyboard=True)
     await update.message.reply_text(
@@ -222,6 +232,7 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
         await query.answer()
         data = query.data
         if data == "sub_accept":
+            context.user_data["subscription_payment"] = True
             await query.message.reply_text(
                 PAY_ACCOUNT_MSG,
                 reply_markup=get_payment_reply_markup()
@@ -236,6 +247,7 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
     else:
         text = update.message.text
         if text == "اكمال الاشتراك":
+            context.user_data["subscription_payment"] = True
             await update.message.reply_text(
                 PAY_ACCOUNT_MSG,
                 reply_markup=get_payment_reply_markup()
