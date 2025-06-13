@@ -6,7 +6,7 @@ from handlers import (
     start, main_menu_handler, category_handler, question_number_handler,
     free_or_sub_confirm_handler, confirm_free_or_sub_use_handler,
     payment_handler, admin_action_handler, monthly_subscribe_handler,
-    confirm_subscription_handler
+    confirm_subscription_handler, back_to_questions_handler
 )
 from config import TOKEN
 from users import init_users_db
@@ -41,7 +41,8 @@ def main():
             ],
             FREE_OR_SUB_CONFIRM: [
                 MessageHandler(filters.Regex("^(نعم)$"), confirm_free_or_sub_use_handler),
-                MessageHandler(filters.Regex("^(رجوع|القائمة الرئيسية)$"), main_menu_handler),
+                MessageHandler(filters.Regex("^(رجوع)$"), back_to_questions_handler),
+                MessageHandler(filters.Regex("^(القائمة الرئيسية)$"), main_menu_handler),
             ],
             WAIT_PAYMENT: [
                 CallbackQueryHandler(payment_handler),

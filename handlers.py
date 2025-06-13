@@ -120,23 +120,6 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
     user_info = get_user(user.id)
     pending_answer = context.user_data.get("pending_answer")
 
-    if update.message.text == "رجوع":
-        # العودة لقائمة الأسئلة في التصنيف الحالي فقط
-        cat = context.user_data.get("category")
-        questions = CATEGORIES.get(cat, [])
-        context.user_data["questions"] = questions
-        numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
-        await update.message.reply_text(
-            f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
-            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
-            reply_markup=get_back_main_markup()
-        )
-        # حذف انتظار التأكيد السابق
-        context.user_data.pop("awaiting_subscribed_answer", None)
-        context.user_data.pop("awaiting_free_answer", None)
-        # العودة إلى حالة الأسئلة وليس الرئيسية
-        return CHOOSE_QUESTION
-
     if update.message.text == "نعم" and context.user_data.get("awaiting_subscribed_answer"):
         await update.message.reply_text(
             f"الإجابة:\n{ANSWERS.get(pending_answer, 'لا توجد إجابة مسجلة لهذا السؤال.')}",
@@ -161,6 +144,22 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
     else:
         await update.message.reply_text("يرجى الاختيار من الأزرار المتوفرة فقط.", reply_markup=get_free_confirm_markup())
         return FREE_OR_SUB_CONFIRM
+
+# === هنا دالة رجوع الخاصة بقائمة الأسئلة داخل نفس التصنيف ===
+async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cat = context.user_data.get("category")
+    questions = CATEGORIES.get(cat, [])
+    context.user_data["questions"] = questions
+    numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+    await update.message.reply_text(
+        f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
+        "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+        reply_markup=get_back_main_markup()
+    )
+    # حذف انتظار التأكيد السابق
+    context.user_data.pop("awaiting_subscribed_answer", None)
+    context.user_data.pop("awaiting_free_answer", None)
+    return CHOOSE_QUESTION
 
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
