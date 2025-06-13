@@ -32,7 +32,7 @@ def main():
         states={
             CHOOSE_CATEGORY: [
                 MessageHandler(filters.Regex("^اشتراك شهري$"), monthly_subscribe_handler),
-                MessageHandler(filters.Regex("^عن المنصة$"), main_menu_handler),
+                MessageHandler(filters.Regex("^عن المنصة$"), category_handler),  # <== التعديل هنا
                 MessageHandler(filters.TEXT & ~filters.COMMAND, category_handler),
             ],
             CHOOSE_QUESTION: [
