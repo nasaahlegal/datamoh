@@ -1,7 +1,6 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
 def get_categories_markup(categories):
-    # زرين في كل صف + زر القائمة الرئيسية
     keys = list(categories.keys())
     markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
     markup_arr.append(["اشتراك شهري", "عن المنصة"])
@@ -9,7 +8,6 @@ def get_categories_markup(categories):
     return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
 
 def get_main_menu_markup(categories):
-    # نفس دالة التصنيفات
     return get_categories_markup(categories)
 
 def get_payment_markup():

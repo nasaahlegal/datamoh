@@ -11,13 +11,12 @@ from keyboards import (
     get_subscribe_confirm_markup, get_admin_payment_action_markup
 )
 from users import (
-    init_users_db, create_or_get_user, decrement_free_questions, reset_free_questions,
+    create_or_get_user, decrement_free_questions, reset_free_questions,
     set_subscription, is_subscribed, get_user, get_subscription_expiry
 )
 import time
 
-# Conversation states
-CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, MAIN_MENU, SUBSCRIBE_CONFIRM = range(5)
+CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, MAIN_MENU, SUBSCRIBE_CONFIRM, FREE_OR_SUB_CONFIRM = range(6)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -42,16 +41,15 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if cat in CATEGORIES:
         context.user_data["category"] = cat
         questions = CATEGORIES[cat]
+        context.user_data["questions"] = questions
         numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
         await update.message.reply_text(
             f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
             "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
-            reply_markup=get_main_menu_markup(CATEGORIES)
+            reply_markup=None
         )
-        context.user_data["questions"] = questions
         return CHOOSE_QUESTION
     elif cat == "اشتراك شهري":
-        # الانتقال لخطوة تأكيد الاشتراك
         await update.message.reply_text(
             PAY_MSG,
             reply_markup=get_subscribe_confirm_markup()
@@ -81,7 +79,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     except Exception:
         await update.message.reply_text(
             "الرجاء إرسال رقم صحيح من القائمة.",
-            reply_markup=get_main_menu_markup(CATEGORIES)
+            reply_markup=None
         )
         return CHOOSE_QUESTION
     question = questions[idx]
@@ -96,7 +94,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
             "ارسل (نعم) أو (رجوع) أو (القائمة الرئيسية)."
         )
         context.user_data["awaiting_subscribed_answer"] = True
-        return CHOOSE_QUESTION
+        return FREE_OR_SUB_CONFIRM
 
     if user_info["free_questions_left"] > 0:
         await update.message.reply_text(
@@ -105,7 +103,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
             "ارسل (نعم) أو (رجوع) أو (القائمة الرئيسية)."
         )
         context.user_data["awaiting_free_answer"] = True
-        return CHOOSE_QUESTION
+        return FREE_OR_SUB_CONFIRM
     else:
         await update.message.reply_text(
             SINGLE_PAY_MSG,
@@ -113,12 +111,39 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         )
         return WAIT_PAYMENT
 
+async def free_or_sub_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # هذه الدالة لن تُستخدم مباشرة بل من خلال confirm_free_or_sub_use_handler أدناه.
+    pass
+
+async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    user_info = get_user(user.id)
+    pending_answer = context.user_data.get("pending_answer")
+    if context.user_data.get("awaiting_subscribed_answer"):
+        await update.message.reply_text(
+            f"الإجابة:\n{ANSWERS.get(pending_answer, 'لا توجد إجابة مسجلة لهذا السؤال.')}",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
+        context.user_data.pop("awaiting_subscribed_answer", None)
+        return CHOOSE_CATEGORY
+    elif context.user_data.get("awaiting_free_answer"):
+        decrement_free_questions(user.id)
+        left = user_info['free_questions_left'] - 1
+        await update.message.reply_text(
+            f"الإجابة:\n{ANSWERS.get(pending_answer, 'لا توجد إجابة مسجلة لهذا السؤال.')}\n\n(تبقى لديك {left} سؤال مجاني)",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
+        context.user_data.pop("awaiting_free_answer", None)
+        return CHOOSE_CATEGORY
+    else:
+        await update.message.reply_text("حدث خطأ، أعد المحاولة.", reply_markup=get_main_menu_markup(CATEGORIES))
+        return CHOOSE_CATEGORY
+
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user = query.from_user
     await query.answer()
     if query.data == "paid":
-        # إشعار للأدمن مع أزرار
         pending_answer = context.user_data.get("pending_answer", None)
         await query.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
         await context.bot.send_message(
@@ -175,7 +200,6 @@ async def admin_action_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         if "_q" in id_part:
             user_id = int(id_part.split("_")[0])
             user = get_user(user_id)
-            question = None  # يمكن توسيع منطق الربط مع السؤال
             await context.bot.send_message(
                 chat_id=user_id,
                 text="تم تأكيد الدفع. سيتم إرسال الجواب إليك خلال دقيقة.\n"
@@ -201,10 +225,3 @@ async def admin_action_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             text=f"لم يتم قبول طلب الدفع. إذا كان هنالك خطأ راسل الدعم: @{SUPPORT_USERNAME}"
         )
         await query.edit_message_text("❌ تم رفض الاشتراك/الدفع لهذا المستخدم.")
-
-async def back_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "اختر القسم المناسب:",
-        reply_markup=get_main_menu_markup(CATEGORIES)
-    )
-    return CHOOSE_CATEGORY
