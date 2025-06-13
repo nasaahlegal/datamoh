@@ -7,7 +7,7 @@ from config import (
     PAY_ACCOUNT_MSG
 )
 from keyboards import (
-    get_categories_markup, get_main_menu_markup, get_payment_reply_markup,
+    get_categories_markup, get_main_menu_markup, get_payment_markup, get_payment_reply_markup,
     get_subscribe_confirm_markup, get_admin_payment_action_markup,
     get_back_main_markup, get_about_markup, get_free_confirm_markup
 )
@@ -108,7 +108,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     else:
         await update.message.reply_text(
             SINGLE_PAY_MSG,
-            reply_markup=get_payment_reply_markup()
+            reply_markup=get_payment_markup()
         )
         return WAIT_PAYMENT
 
@@ -160,20 +160,30 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     return CHOOSE_QUESTION
 
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # دعم كل من CallbackQuery (القديم) وMessage (زر تم التحويل ReplyKeyboard)
-    if hasattr(update, "callback_query") and update.callback_query:
+    # يدعم كل من CallbackQuery (inline) ورسالة نصية (reply)
+    if hasattr(update, "callback_query") and update.callback_query is not None:
         query = update.callback_query
         user = query.from_user
         await query.answer()
         if query.data == "paid":
             pending_answer = context.user_data.get("pending_answer", None)
-            await query.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
-            await context.bot.send_message(
-                chat_id=ADMIN_TELEGRAM_ID,
-                text=f"طلب دفع لسؤال:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}\nالسؤال: {pending_answer}",
-                reply_markup=get_admin_payment_action_markup(f"{user.id}_q")
-            )
-            context.user_data.pop("pending_answer", None)
+            is_subscription = context.user_data.get("subscription_payment", False)
+            if is_subscription:
+                await query.message.reply_text("تم إرسال طلبك وسيتم تفعيل الاشتراك بعد التأكد من التحويل.")
+                await context.bot.send_message(
+                    chat_id=ADMIN_TELEGRAM_ID,
+                    text=f"طلب اشتراك جديد:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}",
+                    reply_markup=get_admin_payment_action_markup(user.id)
+                )
+                context.user_data.pop("subscription_payment", None)
+            else:
+                await query.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
+                await context.bot.send_message(
+                    chat_id=ADMIN_TELEGRAM_ID,
+                    text=f"طلب دفع لسؤال:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}\nالسؤال: {pending_answer}",
+                    reply_markup=get_admin_payment_action_markup(f"{user.id}_q")
+                )
+                context.user_data.pop("pending_answer", None)
             return ConversationHandler.END
         elif query.data == "back" or query.data == "sub_cancel":
             await query.message.reply_text(
@@ -184,11 +194,10 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.message.reply_text("حدث خطأ! يرجى المحاولة مرة أخرى.")
             return ConversationHandler.END
-    elif hasattr(update, "message") and update.message:
+    elif hasattr(update, "message") and update.message is not None:
         user = update.effective_user
         text = update.message.text
         if text == "تم التحويل":
-            # تحديد ما إذا كان دفع اشتراك أم سؤال مفرد
             is_subscription = context.user_data.get("subscription_payment", False)
             pending_answer = context.user_data.get("pending_answer", None)
             if is_subscription:
@@ -235,7 +244,11 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             context.user_data["subscription_payment"] = True
             await query.message.reply_text(
                 PAY_ACCOUNT_MSG,
-                reply_markup=get_payment_reply_markup()
+                reply_markup=get_payment_markup()
+            )
+            await query.message.reply_text(
+                "يمكنك العودة للقائمة أو الرجوع:",
+                reply_markup=get_back_main_markup()
             )
             return WAIT_PAYMENT
         elif data == "sub_cancel":
@@ -250,7 +263,11 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             context.user_data["subscription_payment"] = True
             await update.message.reply_text(
                 PAY_ACCOUNT_MSG,
-                reply_markup=get_payment_reply_markup()
+                reply_markup=get_payment_markup()
+            )
+            await update.message.reply_text(
+                "يمكنك العودة للقائمة أو الرجوع:",
+                reply_markup=get_back_main_markup()
             )
             return WAIT_PAYMENT
         elif text == "الغاء":
