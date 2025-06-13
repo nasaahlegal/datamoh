@@ -131,9 +131,10 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
             "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
             reply_markup=get_back_main_markup()
         )
-        # احذف أي انتظار سابق
+        # حذف انتظار التأكيد السابق
         context.user_data.pop("awaiting_subscribed_answer", None)
         context.user_data.pop("awaiting_free_answer", None)
+        # العودة إلى حالة الأسئلة وليس الرئيسية
         return CHOOSE_QUESTION
 
     if update.message.text == "نعم" and context.user_data.get("awaiting_subscribed_answer"):
@@ -143,6 +144,7 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         )
         context.user_data.pop("awaiting_subscribed_answer", None)
         return CHOOSE_CATEGORY
+
     elif update.message.text == "نعم" and context.user_data.get("awaiting_free_answer"):
         decrement_free_questions(user.id)
         left = user_info['free_questions_left'] - 1
@@ -152,8 +154,10 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         )
         context.user_data.pop("awaiting_free_answer", None)
         return CHOOSE_CATEGORY
+
     elif update.message.text == "القائمة الرئيسية":
         return await main_menu_handler(update, context)
+
     else:
         await update.message.reply_text("يرجى الاختيار من الأزرار المتوفرة فقط.", reply_markup=get_free_confirm_markup())
         return FREE_OR_SUB_CONFIRM
