@@ -145,7 +145,6 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         await update.message.reply_text("يرجى الاختيار من الأزرار المتوفرة فقط.", reply_markup=get_free_confirm_markup())
         return FREE_OR_SUB_CONFIRM
 
-# === هنا دالة رجوع الخاصة بقائمة الأسئلة داخل نفس التصنيف ===
 async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cat = context.user_data.get("category")
     questions = CATEGORIES.get(cat, [])
@@ -156,7 +155,6 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
         "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
         reply_markup=get_back_main_markup()
     )
-    # حذف انتظار التأكيد السابق
     context.user_data.pop("awaiting_subscribed_answer", None)
     context.user_data.pop("awaiting_free_answer", None)
     return CHOOSE_QUESTION
@@ -186,29 +184,49 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
 async def monthly_subscribe_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # عند الضغط على اشتراك شهري تظهر فقط (اكمال الاشتراك) و(الغاء)
+    from telegram import ReplyKeyboardMarkup
+    markup = ReplyKeyboardMarkup([["اكمال الاشتراك"], ["الغاء"]], resize_keyboard=True)
     await update.message.reply_text(
         PAY_MSG,
-        reply_markup=get_subscribe_confirm_markup()
+        reply_markup=markup
     )
     return SUBSCRIBE_CONFIRM
 
 async def confirm_subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user = query.from_user
-    await query.answer()
-    if query.data == "sub_accept":
-        await query.message.reply_text(
-            PAY_ACCOUNT_MSG,
-            reply_markup=get_payment_markup()
-        )
-        context.user_data["awaiting_subscription"] = True
-        return WAIT_PAYMENT
-    elif query.data == "sub_cancel":
-        await query.message.reply_text(
-            "تم إلغاء الاشتراك. عد إلى القائمة الرئيسية.",
-            reply_markup=get_main_menu_markup(CATEGORIES)
-        )
-        return CHOOSE_CATEGORY
+    # التعامل مع (اكمال الاشتراك) و(الغاء)
+    text = None
+    if hasattr(update, "callback_query") and update.callback_query:
+        query = update.callback_query
+        user = query.from_user
+        await query.answer()
+        data = query.data
+        if data == "sub_accept":
+            await query.message.reply_text(
+                PAY_ACCOUNT_MSG,
+                reply_markup=get_payment_markup()
+            )
+            return WAIT_PAYMENT
+        elif data == "sub_cancel":
+            await query.message.reply_text(
+                "تم إلغاء الاشتراك. عد إلى القائمة الرئيسية.",
+                reply_markup=get_main_menu_markup(CATEGORIES)
+            )
+            return CHOOSE_CATEGORY
+    else:
+        text = update.message.text
+        if text == "اكمال الاشتراك":
+            await update.message.reply_text(
+                PAY_ACCOUNT_MSG,
+                reply_markup=get_payment_markup()
+            )
+            return WAIT_PAYMENT
+        elif text == "الغاء":
+            await update.message.reply_text(
+                "تم إلغاء الاشتراك. عد إلى القائمة الرئيسية.",
+                reply_markup=get_main_menu_markup(CATEGORIES)
+            )
+            return CHOOSE_CATEGORY
 
 async def admin_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

@@ -50,6 +50,7 @@ def main():
             ],
             SUBSCRIBE_CONFIRM: [
                 CallbackQueryHandler(confirm_subscription_handler),
+                MessageHandler(filters.Regex("^(اكمال الاشتراك|الغاء)$"), confirm_subscription_handler),
                 MessageHandler(filters.Regex("^(رجوع|القائمة الرئيسية)$"), main_menu_handler),
             ],
         },
