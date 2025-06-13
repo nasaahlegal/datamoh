@@ -7,7 +7,7 @@ from config import (
     PAY_ACCOUNT_MSG
 )
 from keyboards import (
-    get_categories_markup, get_main_menu_markup, get_payment_markup, get_payment_reply_markup,
+    get_categories_markup, get_main_menu_markup, get_payment_reply_markup,
     get_subscribe_confirm_markup, get_admin_payment_action_markup,
     get_back_main_markup, get_about_markup, get_free_confirm_markup
 )
@@ -108,7 +108,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     else:
         await update.message.reply_text(
             SINGLE_PAY_MSG,
-            reply_markup=get_payment_markup()
+            reply_markup=get_payment_reply_markup()  # <--- هنا التغيير
         )
         return WAIT_PAYMENT
 
@@ -160,7 +160,6 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     return CHOOSE_QUESTION
 
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # يدعم كل من CallbackQuery (inline) ورسالة نصية (reply)
     if hasattr(update, "callback_query") and update.callback_query is not None:
         query = update.callback_query
         user = query.from_user
@@ -244,7 +243,7 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             context.user_data["subscription_payment"] = True
             await query.message.reply_text(
                 PAY_ACCOUNT_MSG,
-                reply_markup=get_payment_markup()
+                reply_markup=get_payment_reply_markup()  # <--- هنا التغيير
             )
             await query.message.reply_text(
                 "يمكنك العودة للقائمة أو الرجوع:",
@@ -263,7 +262,7 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             context.user_data["subscription_payment"] = True
             await update.message.reply_text(
                 PAY_ACCOUNT_MSG,
-                reply_markup=get_payment_markup()
+                reply_markup=get_payment_reply_markup()  # <--- هنا التغيير
             )
             await update.message.reply_text(
                 "يمكنك العودة للقائمة أو الرجوع:",

@@ -16,16 +16,10 @@ def get_back_main_markup():
 def get_about_markup():
     return ReplyKeyboardMarkup([["القائمة الرئيسية"]], resize_keyboard=True)
 
-def get_payment_markup():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("تم التحويل", callback_data="paid")],
-        [InlineKeyboardButton("رجوع", callback_data="back")]
-    ])
-
 def get_payment_reply_markup():
-    # زر تم التحويل مع رجوع والقائمة الرئيسية كـ ReplyKeyboard (يمكن استخدامه عند الحاجة)
+    # تم التحويل + القائمة الرئيسية في سطر واحد، رجوع في سطر منفصل
     return ReplyKeyboardMarkup(
-        [["تم التحويل"], ["رجوع", "القائمة الرئيسية"]],
+        [["تم التحويل", "القائمة الرئيسية"], ["رجوع"]],
         resize_keyboard=True
     )
 
