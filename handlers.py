@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes, ConversationHandler
 from config import (
     CATEGORIES, ANSWERS, FREE_QUESTIONS_LIMIT, QUESTION_PRICE,
@@ -16,8 +16,12 @@ from users import (
     set_subscription, is_subscribed, get_user, get_subscription_expiry
 )
 import time
+import re
 
 CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, MAIN_MENU, SUBSCRIBE_CONFIRM, FREE_OR_SUB_CONFIRM = range(6)
+
+def contains_arabic_digits(text):
+    return bool(re.search(r'[٠-٩]', text))
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -29,11 +33,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CHOOSE_CATEGORY
 
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # الانتقال التلقائي للبوت الجديد بدون أي رسالة نصية
     await update.message.reply_text(
-        "اختر القسم المناسب:",
-        reply_markup=get_main_menu_markup(CATEGORIES)
+        ".",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("", url="https://t.me/mohamy_law_bot")]
+        ])
     )
-    return CHOOSE_CATEGORY
+    return ConversationHandler.END
 
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -44,8 +51,9 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         questions = CATEGORIES[cat]
         context.user_data["questions"] = questions
         numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+        note = "\n\n❗️ ملاحظة: يرجى كتابة رقم السؤال باستخدام الأرقام الإنجليزية فقط (مثال: 1 أو 2 أو 3 ...)"
         await update.message.reply_text(
-            f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
+            f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}{note}\n\n"
             "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
             reply_markup=get_back_main_markup()
         )
@@ -73,8 +81,17 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     user = update.effective_user
     user_info = get_user(user.id)
     questions = context.user_data.get("questions", [])
+
+    user_input = update.message.text.strip()
+    if contains_arabic_digits(user_input):
+        await update.message.reply_text(
+            "يرجى إرسال رقم السؤال باستخدام الأرقام الإنجليزية فقط (مثال: 1 أو 2 أو 3 ...)",
+            reply_markup=get_back_main_markup()
+        )
+        return CHOOSE_QUESTION
+
     try:
-        idx = int(update.message.text) - 1
+        idx = int(user_input) - 1
         if idx < 0 or idx >= len(questions):
             raise Exception()
     except Exception:
@@ -139,7 +156,8 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         return CHOOSE_CATEGORY
 
     elif update.message.text == "القائمة الرئيسية":
-        return await main_menu_handler(update, context)
+        await main_menu_handler(update, context)
+        return ConversationHandler.END
 
     else:
         await update.message.reply_text("يرجى الاختيار من الأزرار المتوفرة فقط.", reply_markup=get_free_confirm_markup())
@@ -150,8 +168,9 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     questions = CATEGORIES.get(cat, [])
     context.user_data["questions"] = questions
     numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+    note = "\n\n❗️ ملاحظة: يرجى كتابة رقم السؤال باستخدام الأرقام الإنجليزية فقط (مثال: 1 أو 2 أو 3 ...)"
     await update.message.reply_text(
-        f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
+        f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}{note}\n\n"
         "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
         reply_markup=get_back_main_markup()
     )
@@ -174,17 +193,13 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("pending_answer", None)
         return ConversationHandler.END
     elif query.data == "back" or query.data == "sub_cancel":
-        await query.message.reply_text(
-            "تم الرجوع إلى القائمة الرئيسية.",
-            reply_markup=get_main_menu_markup(CATEGORIES)
-        )
-        return CHOOSE_CATEGORY
+        await main_menu_handler(update, context)
+        return ConversationHandler.END
     else:
         await query.message.reply_text("حدث خطأ! يرجى المحاولة مرة أخرى.")
         return ConversationHandler.END
 
 async def monthly_subscribe_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # عند الضغط على اشتراك شهري تظهر فقط (اكمال الاشتراك) و(الغاء)
     from telegram import ReplyKeyboardMarkup
     markup = ReplyKeyboardMarkup([["اكمال الاشتراك"], ["الغاء"]], resize_keyboard=True)
     await update.message.reply_text(
@@ -194,7 +209,6 @@ async def monthly_subscribe_handler(update: Update, context: ContextTypes.DEFAUL
     return SUBSCRIBE_CONFIRM
 
 async def confirm_subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # التعامل مع (اكمال الاشتراك) و(الغاء)
     text = None
     if hasattr(update, "callback_query") and update.callback_query:
         query = update.callback_query
@@ -208,11 +222,8 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             )
             return WAIT_PAYMENT
         elif data == "sub_cancel":
-            await query.message.reply_text(
-                "تم إلغاء الاشتراك. عد إلى القائمة الرئيسية.",
-                reply_markup=get_main_menu_markup(CATEGORIES)
-            )
-            return CHOOSE_CATEGORY
+            await main_menu_handler(update, context)
+            return ConversationHandler.END
     else:
         text = update.message.text
         if text == "اكمال الاشتراك":
@@ -222,11 +233,8 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             )
             return WAIT_PAYMENT
         elif text == "الغاء":
-            await update.message.reply_text(
-                "تم إلغاء الاشتراك. عد إلى القائمة الرئيسية.",
-                reply_markup=get_main_menu_markup(CATEGORIES)
-            )
-            return CHOOSE_CATEGORY
+            await main_menu_handler(update, context)
+            return ConversationHandler.END
 
 async def admin_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
