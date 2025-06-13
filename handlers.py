@@ -194,7 +194,6 @@ async def monthly_subscribe_handler(update: Update, context: ContextTypes.DEFAUL
     return SUBSCRIBE_CONFIRM
 
 async def confirm_subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # التعامل مع (اكمال الاشتراك) و(الغاء) من ReplyKeyboard أو InlineKeyboard
     text = None
     if hasattr(update, "callback_query") and update.callback_query:
         query = update.callback_query
@@ -205,6 +204,11 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             await query.message.reply_text(
                 PAY_ACCOUNT_MSG,
                 reply_markup=get_payment_markup()
+            )
+            # تظهر بعدها أزرار (رجوع، القائمة الرئيسية) فقط
+            await query.message.reply_text(
+                "يمكنك العودة للقائمة أو الرجوع:",
+                reply_markup=get_back_main_markup()
             )
             return WAIT_PAYMENT
         elif data == "sub_cancel":
@@ -219,6 +223,11 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             await update.message.reply_text(
                 PAY_ACCOUNT_MSG,
                 reply_markup=get_payment_markup()
+            )
+            # تظهر بعدها أزرار (رجوع، القائمة الرئيسية) فقط
+            await update.message.reply_text(
+                "يمكنك العودة للقائمة أو الرجوع:",
+                reply_markup=get_back_main_markup()
             )
             return WAIT_PAYMENT
         elif text == "الغاء":

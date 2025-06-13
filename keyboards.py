@@ -25,7 +25,7 @@ def get_payment_markup():
     ])
 
 def get_subscribe_confirm_markup():
-    # فقط زر قبول وزر إلغاء وزر القائمة الرئيسية
+    # فقط زر قبول وزر إلغاء
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("قبول الاشتراك", callback_data="sub_accept")],
         [InlineKeyboardButton("إلغاء", callback_data="sub_cancel")],
