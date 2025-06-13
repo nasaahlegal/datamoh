@@ -108,7 +108,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     else:
         await update.message.reply_text(
             SINGLE_PAY_MSG,
-            reply_markup=get_payment_reply_markup()  # <--- هنا التغيير
+            reply_markup=get_payment_reply_markup()
         )
         return WAIT_PAYMENT
 
@@ -243,12 +243,9 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             context.user_data["subscription_payment"] = True
             await query.message.reply_text(
                 PAY_ACCOUNT_MSG,
-                reply_markup=get_payment_reply_markup()  # <--- هنا التغيير
+                reply_markup=get_payment_reply_markup()
             )
-            await query.message.reply_text(
-                "يمكنك العودة للقائمة أو الرجوع:",
-                reply_markup=get_back_main_markup()
-            )
+            # تم حذف السطر الذي يرسل كيبورد آخر بعد كيبورد الدفع
             return WAIT_PAYMENT
         elif data == "sub_cancel":
             await query.message.reply_text(
@@ -262,12 +259,9 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             context.user_data["subscription_payment"] = True
             await update.message.reply_text(
                 PAY_ACCOUNT_MSG,
-                reply_markup=get_payment_reply_markup()  # <--- هنا التغيير
+                reply_markup=get_payment_reply_markup()
             )
-            await update.message.reply_text(
-                "يمكنك العودة للقائمة أو الرجوع:",
-                reply_markup=get_back_main_markup()
-            )
+            # تم حذف السطر الذي يرسل كيبورد آخر بعد كيبورد الدفع
             return WAIT_PAYMENT
         elif text == "الغاء":
             await update.message.reply_text(
