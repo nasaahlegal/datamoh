@@ -194,7 +194,7 @@ async def monthly_subscribe_handler(update: Update, context: ContextTypes.DEFAUL
     return SUBSCRIBE_CONFIRM
 
 async def confirm_subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # التعامل مع (اكمال الاشتراك) و(الغاء)
+    # التعامل مع (اكمال الاشتراك) و(الغاء) من ReplyKeyboard أو InlineKeyboard
     text = None
     if hasattr(update, "callback_query") and update.callback_query:
         query = update.callback_query
@@ -227,6 +227,12 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
                 reply_markup=get_main_menu_markup(CATEGORIES)
             )
             return CHOOSE_CATEGORY
+        else:
+            await update.message.reply_text(
+                "يرجى الضغط على زر (اكمال الاشتراك) أو (الغاء) فقط.",
+                reply_markup=get_subscribe_confirm_markup()
+            )
+            return SUBSCRIBE_CONFIRM
 
 async def admin_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
