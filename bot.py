@@ -6,8 +6,7 @@ from handlers import (
     start, main_menu_handler, category_handler, question_number_handler,
     free_or_sub_confirm_handler, confirm_free_or_sub_use_handler,
     payment_handler, admin_action_handler, monthly_subscribe_handler,
-    confirm_subscription_handler, back_to_questions_handler,
-    admin_list_subscribers_handler, admin_manage_subscriber_callback
+    confirm_subscription_handler, back_to_questions_handler
 )
 from config import TOKEN
 from users import init_users_db
@@ -33,7 +32,7 @@ def main():
         states={
             CHOOSE_CATEGORY: [
                 MessageHandler(filters.Regex("^اشتراك شهري$"), monthly_subscribe_handler),
-                MessageHandler(filters.Regex("^عن المنصة$"), category_handler),
+                MessageHandler(filters.Regex("^عن المنصة$"), main_menu_handler),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, category_handler),
             ],
             CHOOSE_QUESTION: [
@@ -63,9 +62,6 @@ def main():
     )
     app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(admin_action_handler, pattern="^(approve_sub_|reject_sub_).+"))
-    app.add_handler(CommandHandler("list", admin_list_subscribers_handler))
-    app.add_handler(MessageHandler(filters.Regex("^(قائمة)$"), admin_list_subscribers_handler))
-    app.add_handler(CallbackQueryHandler(admin_manage_subscriber_callback, pattern="^admin_"))
     app.run_polling()
 
 if __name__ == "__main__":

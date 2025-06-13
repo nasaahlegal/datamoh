@@ -101,33 +101,3 @@ def is_subscribed(user_id):
 def get_subscription_expiry(user_id):
     user = get_user(user_id)
     return user["sub_expiry"] if user else None
-
-def get_all_active_subscribers():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT user_id, username, full_name, sub_expiry FROM users WHERE sub_expiry > %s", (int(time.time()),))
-    rows = cur.fetchall()
-    conn.close()
-    return [
-        {
-            "user_id": row[0],
-            "username": row[1],
-            "full_name": row[2],
-            "sub_expiry": row[3]
-        }
-        for row in rows
-    ]
-
-def remove_subscription(user_id):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE users SET sub_expiry=0 WHERE user_id=%s", (user_id,))
-    conn.commit()
-    conn.close()
-
-def ban_user(user_id):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE users SET sub_expiry=0, free_questions_left=0 WHERE user_id=%s", (user_id,))
-    conn.commit()
-    conn.close()
