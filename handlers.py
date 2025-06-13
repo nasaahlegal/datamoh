@@ -193,8 +193,12 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("pending_answer", None)
         return ConversationHandler.END
     elif query.data == "back" or query.data == "sub_cancel":
-        await main_menu_handler(update, context)
-        return ConversationHandler.END
+        # عند العودة أو الالغاء ارجع لقائمة التصنيفات مباشرة
+        await query.message.reply_text(
+            "اختر القسم المناسب:",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
+        return CHOOSE_CATEGORY
     else:
         await query.message.reply_text("حدث خطأ! يرجى المحاولة مرة أخرى.")
         return ConversationHandler.END
@@ -222,8 +226,11 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             )
             return WAIT_PAYMENT
         elif data == "sub_cancel":
-            await main_menu_handler(update, context)
-            return ConversationHandler.END
+            await query.message.reply_text(
+                "اختر القسم المناسب:",
+                reply_markup=get_main_menu_markup(CATEGORIES)
+            )
+            return CHOOSE_CATEGORY
     else:
         text = update.message.text
         if text == "اكمال الاشتراك":
@@ -233,8 +240,11 @@ async def confirm_subscription_handler(update: Update, context: ContextTypes.DEF
             )
             return WAIT_PAYMENT
         elif text == "الغاء":
-            await main_menu_handler(update, context)
-            return ConversationHandler.END
+            await update.message.reply_text(
+                "اختر القسم المناسب:",
+                reply_markup=get_main_menu_markup(CATEGORIES)
+            )
+            return CHOOSE_CATEGORY
 
 async def admin_action_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query

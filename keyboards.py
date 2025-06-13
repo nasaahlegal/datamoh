@@ -15,8 +15,8 @@ def get_back_main_markup():
     return ReplyKeyboardMarkup([["رجوع", "القائمة الرئيسية"]], resize_keyboard=True)
 
 def get_about_markup():
-    # فقط زر القائمة الرئيسية
-    return ReplyKeyboardMarkup([["القائمة الرئيسية"]], resize_keyboard=True)
+    # فقط زر رجوع (بدلاً من "القائمة الرئيسية" أو "العودة الى القائمة الرئيسية")
+    return ReplyKeyboardMarkup([["رجوع"]], resize_keyboard=True)
 
 def get_payment_markup():
     return InlineKeyboardMarkup([
