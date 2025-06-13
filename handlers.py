@@ -9,7 +9,7 @@ from config import (
 from keyboards import (
     get_categories_markup, get_main_menu_markup, get_payment_markup,
     get_subscribe_confirm_markup, get_admin_payment_action_markup,
-    get_back_main_markup, get_about_markup
+    get_back_main_markup, get_about_markup, get_free_confirm_markup
 )
 from users import (
     create_or_get_user, decrement_free_questions, reset_free_questions,
@@ -91,9 +91,8 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         days_left = int((expiry - int(time.time())) / (24*60*60))
         await update.message.reply_text(
             f"لديك اشتراك فعال. متبقي لك {days_left} يوم من الاشتراك.\n"
-            "هل تريد الحصول على الجواب الآن؟\n"
-            "ارسل (نعم) أو (رجوع) أو (القائمة الرئيسية).",
-            reply_markup=get_back_main_markup()
+            "هل تريد الحصول على الجواب الآن؟",
+            reply_markup=get_free_confirm_markup()
         )
         context.user_data["awaiting_subscribed_answer"] = True
         return FREE_OR_SUB_CONFIRM
@@ -101,9 +100,8 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     if user_info["free_questions_left"] > 0:
         await update.message.reply_text(
             f"لديك {user_info['free_questions_left']} سؤال مجاني متبقٍ.\n"
-            "هل ترغب باستخدام سؤال مجاني للحصول على الجواب؟\n"
-            "ارسل (نعم) أو (رجوع) أو (القائمة الرئيسية).",
-            reply_markup=get_back_main_markup()
+            "هل ترغب باستخدام سؤال مجاني للحصول على الجواب؟",
+            reply_markup=get_free_confirm_markup()
         )
         context.user_data["awaiting_free_answer"] = True
         return FREE_OR_SUB_CONFIRM
@@ -121,14 +119,29 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
     user = update.effective_user
     user_info = get_user(user.id)
     pending_answer = context.user_data.get("pending_answer")
-    if context.user_data.get("awaiting_subscribed_answer"):
+    if update.message.text == "رجوع":
+        # العودة لقائمة الأسئلة في التصنيف الحالي فقط
+        cat = context.user_data.get("category")
+        questions = CATEGORIES.get(cat, [])
+        context.user_data["questions"] = questions
+        numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+        await update.message.reply_text(
+            f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
+            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            reply_markup=get_back_main_markup()
+        )
+        context.user_data.pop("awaiting_subscribed_answer", None)
+        context.user_data.pop("awaiting_free_answer", None)
+        return CHOOSE_QUESTION
+
+    if update.message.text == "نعم" and context.user_data.get("awaiting_subscribed_answer"):
         await update.message.reply_text(
             f"الإجابة:\n{ANSWERS.get(pending_answer, 'لا توجد إجابة مسجلة لهذا السؤال.')}",
             reply_markup=get_main_menu_markup(CATEGORIES)
         )
         context.user_data.pop("awaiting_subscribed_answer", None)
         return CHOOSE_CATEGORY
-    elif context.user_data.get("awaiting_free_answer"):
+    elif update.message.text == "نعم" and context.user_data.get("awaiting_free_answer"):
         decrement_free_questions(user.id)
         left = user_info['free_questions_left'] - 1
         await update.message.reply_text(
@@ -137,9 +150,11 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         )
         context.user_data.pop("awaiting_free_answer", None)
         return CHOOSE_CATEGORY
+    elif update.message.text == "القائمة الرئيسية":
+        return await main_menu_handler(update, context)
     else:
-        await update.message.reply_text("حدث خطأ، أعد المحاولة.", reply_markup=get_main_menu_markup(CATEGORIES))
-        return CHOOSE_CATEGORY
+        await update.message.reply_text("يرجى الاختيار من الأزرار المتوفرة فقط.", reply_markup=get_free_confirm_markup())
+        return FREE_OR_SUB_CONFIRM
 
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -155,7 +170,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         context.user_data.pop("pending_answer", None)
         return ConversationHandler.END
-    elif query.data == "back":
+    elif query.data == "back" or query.data == "sub_cancel":
         await query.message.reply_text(
             "تم الرجوع إلى القائمة الرئيسية.",
             reply_markup=get_main_menu_markup(CATEGORIES)

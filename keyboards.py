@@ -25,9 +25,10 @@ def get_payment_markup():
     ])
 
 def get_subscribe_confirm_markup():
+    # فقط زر قبول وزر إلغاء وزر القائمة الرئيسية
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("قبول الاشتراك", callback_data="sub_accept")],
-        [InlineKeyboardButton("رجوع", callback_data="sub_cancel")]
+        [InlineKeyboardButton("إلغاء", callback_data="sub_cancel")],
     ])
 
 def get_admin_payment_action_markup(user_id):
@@ -37,3 +38,7 @@ def get_admin_payment_action_markup(user_id):
             InlineKeyboardButton("رفض ❌", callback_data=f"reject_sub_{user_id}")
         ]
     ])
+
+def get_free_confirm_markup():
+    # نعم + رجوع + القائمة الرئيسية
+    return ReplyKeyboardMarkup([["نعم"], ["رجوع", "القائمة الرئيسية"]], resize_keyboard=True)
