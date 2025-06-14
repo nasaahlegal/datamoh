@@ -5,7 +5,7 @@ from telegram.ext import (
 from handlers import (
     start, main_menu_handler, category_handler, question_number_handler,
     confirm_free_or_sub_use_handler, payment_handler, back_to_questions_handler,
-    subscription_handler, subscription_confirm, admin_stats
+    subscription_handler, subscription_confirm, admin_stats, handle_admin_callback
 )
 from config import TOKEN, ADMIN_TELEGRAM_ID
 from users import init_users_db
@@ -45,7 +45,7 @@ def main():
                 MessageHandler(filters.Regex("^(تم التحويل|الغاء)$"), payment_handler),
             ],
             SUBSCRIPTION_FLOW: [
-                MessageHandler(filters.Regex("^(موافق|رجوع|العودة الى القائمة الرئيسية)$"), subscription_confirm),
+                MessageHandler(filters.Regex("^(موافق|رجوع)$"), subscription_confirm),
             ],
         },
         fallbacks=[
@@ -57,6 +57,7 @@ def main():
     
     app.add_handler(conv)
     app.add_handler(CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID)))
+    app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
     app.run_polling()
 
 if __name__ == "__main__":

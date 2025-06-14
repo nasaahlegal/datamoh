@@ -1,5 +1,5 @@
-from telegram import Update
-from telegram.ext import ContextTypes, ConversationHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler
 from config import (
     CATEGORIES, ANSWERS, FREE_QUESTIONS_LIMIT, QUESTION_PRICE,
     SINGLE_PAY_MSG, ADMIN_TELEGRAM_ID, ADMIN_USERNAME, SUPPORT_USERNAME,
@@ -8,7 +8,7 @@ from config import (
 from keyboards import (
     get_main_menu_markup, get_payment_reply_markup,
     get_back_main_markup, get_about_markup, get_free_confirm_markup,
-    get_subscription_markup
+    get_subscription_markup, get_admin_decision_markup
 )
 from users import (
     create_or_get_user, decrement_free_questions,
@@ -113,10 +113,6 @@ async def subscription_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         context.user_data["subscription_request"] = True
         return WAIT_PAYMENT
-    elif text == "العودة الى القائمة الرئيسية":
-        await update.message.reply_text(
-            "انتقل إلى البوت الرئيسي: @mohamy_law_bot")
-        return ConversationHandler.END
     elif text == "رجوع":
         await main_menu_handler(update, context)
         return CHOOSE_CATEGORY
@@ -215,12 +211,13 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("تم إرسال طلب اشتراكك وسيتم تفعيله بعد التأكد من التحويل.")
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
-                text=f"طلب اشتراك جديد:\n"
-                     f"الاسم: {user.full_name}\n"
-                     f"المعرف: @{user.username or 'بدون'}\n"
-                     f"ID: {user.id}\n\n"
-                     f"لتفعيل الاشتراك استخدم الأمر:\n"
-                     f"/activate_{user.id}"
+                text=f"📬 طلب اشتراك جديد:\n"
+                     f"👤 الاسم: {user.full_name}\n"
+                     f"🔗 المعرف: @{user.username or 'بدون'}\n"
+                     f"🆔 ID: {user.id}\n"
+                     f"💳 المبلغ: 50,000 دينار عراقي\n"
+                     f"⏳ المدة: 30 يوم",
+                reply_markup=get_admin_decision_markup(user.id)
             )
         else:
             # طلب سؤال واحد
@@ -228,11 +225,11 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
-                text=f"طلب دفع لسؤال:\n"
-                     f"الاسم: {user.full_name}\n"
-                     f"المعرف: @{user.username or 'بدون'}\n"
-                     f"ID: {user.id}\n"
-                     f"السؤال: {pending_answer}",
+                text=f"📬 طلب دفع لسؤال:\n"
+                     f"👤 الاسم: {user.full_name}\n"
+                     f"🔗 المعرف: @{user.username or 'بدون'}\n"
+                     f"🆔 ID: {user.id}\n"
+                     f"❓ السؤال: {pending_answer}",
             )
         
         context.user_data.pop("pending_answer", None)
@@ -240,9 +237,35 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
         
     elif text == "الغاء":
-        await main_menu_handler(update, context)
+        await update.message.reply_text(
+            "تم إلغاء عملية الدفع.",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
         return CHOOSE_CATEGORY
         
     else:
         await update.message.reply_text("يرجى استخدام الأزرار فقط.", reply_markup=get_payment_reply_markup())
         return WAIT_PAYMENT
+
+async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    user_id = int(data.split('_')[1])
+    
+    if data.startswith("accept_"):
+        set_subscription(user_id, "", "", 30)
+        await query.edit_message_text(f"✅ تم تفعيل الاشتراك للمستخدم {user_id}")
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="🎉 تم تفعيل اشتراكك بنجاح لمدة 30 يومًا!\n"
+                 "يمكنك الآن استخدام جميع الأسئلة بدون قيود."
+        )
+    elif data.startswith("reject_"):
+        await query.edit_message_text(f"❌ تم رفض طلب اشتراك المستخدم {user_id}")
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="⚠️ تم رفض طلب اشتراكك.\n"
+                 "في حال وجود خطأ، يرجى التواصل مع @mohamycom"
+        )
