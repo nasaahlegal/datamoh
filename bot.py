@@ -1,6 +1,6 @@
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
-    ConversationHandler, filters
+    ConversationHandler, filters, CallbackQueryHandler
 )
 from handlers import (
     start, main_menu_handler, category_handler, question_number_handler,
@@ -14,10 +14,9 @@ from users import init_users_db
     CHOOSE_CATEGORY,
     CHOOSE_QUESTION,
     WAIT_PAYMENT,
-    MAIN_MENU,
     FREE_OR_SUB_CONFIRM,
     SUBSCRIPTION_FLOW
-) = range(6)
+) = range(5)
 
 def main():
     init_users_db()
@@ -26,7 +25,7 @@ def main():
     conv = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
-            MessageHandler(filters.Regex("^(القائمة الرئيسية|اشتراك شهري)$"), main_menu_handler),
+            MessageHandler(filters.Regex("^(القائمة الرئيسية)$"), main_menu_handler),
         ],
         states={
             CHOOSE_CATEGORY: [
@@ -43,12 +42,10 @@ def main():
                 MessageHandler(filters.Regex("^(القائمة الرئيسية)$"), main_menu_handler),
             ],
             WAIT_PAYMENT: [
-                MessageHandler(filters.Regex("^(تم التحويل)$"), payment_handler),
-                MessageHandler(filters.Regex("^(الغاء)$"), main_menu_handler),
+                MessageHandler(filters.Regex("^(تم التحويل|الغاء)$"), payment_handler),
             ],
             SUBSCRIPTION_FLOW: [
-                MessageHandler(filters.Regex("^(موافق)$"), subscription_confirm),
-                MessageHandler(filters.Regex("^(رجوع|العودة الى القائمة الرئيسية)$"), main_menu_handler),
+                MessageHandler(filters.Regex("^(موافق|رجوع|العودة الى القائمة الرئيسية)$"), subscription_confirm),
             ],
         },
         fallbacks=[

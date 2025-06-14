@@ -12,11 +12,11 @@ from keyboards import (
 )
 from users import (
     create_or_get_user, decrement_free_questions,
-    get_user, set_subscription
+    get_user, set_subscription, get_connection
 )
 import time
 
-CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, MAIN_MENU, FREE_OR_SUB_CONFIRM, SUBSCRIPTION_FLOW = range(6)
+CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, FREE_OR_SUB_CONFIRM, SUBSCRIPTION_FLOW = range(5)
 
 async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_TELEGRAM_ID:
@@ -86,8 +86,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(
             "يرجى اختيار تصنيف صحيح.",
-            reply_markup=get_main_menu_markup(CATEGORIES)
-        )
+            reply_markup=get_main_menu_markup(CATEGORIES))
         return CHOOSE_CATEGORY
 
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -112,16 +111,18 @@ async def subscription_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
             "بعد التحويل يرجى الضغط على (تم التحويل) وسيتم تفعيل الاشتراك بعد التأكد من قبل المختص",
             reply_markup=get_payment_reply_markup()
         )
+        context.user_data["subscription_request"] = True
         return WAIT_PAYMENT
     elif text == "العودة الى القائمة الرئيسية":
         await update.message.reply_text(
-            "انتقل إلى البوت الرئيسي: @mohamy_law_bot",
-            reply_markup=get_main_menu_markup(CATEGORIES)
-        )
+            "انتقل إلى البوت الرئيسي: @mohamy_law_bot")
         return ConversationHandler.END
     elif text == "رجوع":
         await main_menu_handler(update, context)
         return CHOOSE_CATEGORY
+    else:
+        await update.message.reply_text("يرجى الاختيار من الأزرار المتوفرة فقط.")
+        return SUBSCRIPTION_FLOW
 
 async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -155,6 +156,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
             SINGLE_PAY_MSG,
             reply_markup=get_payment_reply_markup()
         )
+        context.user_data["subscription_request"] = False
         return WAIT_PAYMENT
 
 async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -205,24 +207,42 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = update.message.text
-    pending_answer = context.user_data.get("pending_answer", None)
+    user_id = user.id
     
     if text == "تم التحويل":
-        await update.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
-        await update.get_bot().send_message(
-            chat_id=ADMIN_TELEGRAM_ID,
-            text=f"طلب اشتراك جديد:\n"
-                 f"الاسم: {user.full_name}\n"
-                 f"المعرف: @{user.username or 'بدون'}\n"
-                 f"ID: {user.id}\n"
-                 f"لتفعيل الاشتراك استخدم الأمر:\n"
-                 f"/activate_{user.id}"
-        )
+        if context.user_data.get("subscription_request", False):
+            # طلب اشتراك
+            await update.message.reply_text("تم إرسال طلب اشتراكك وسيتم تفعيله بعد التأكد من التحويل.")
+            await update.get_bot().send_message(
+                chat_id=ADMIN_TELEGRAM_ID,
+                text=f"طلب اشتراك جديد:\n"
+                     f"الاسم: {user.full_name}\n"
+                     f"المعرف: @{user.username or 'بدون'}\n"
+                     f"ID: {user.id}\n\n"
+                     f"لتفعيل الاشتراك استخدم الأمر:\n"
+                     f"/activate_{user.id}"
+            )
+        else:
+            # طلب سؤال واحد
+            pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
+            await update.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
+            await update.get_bot().send_message(
+                chat_id=ADMIN_TELEGRAM_ID,
+                text=f"طلب دفع لسؤال:\n"
+                     f"الاسم: {user.full_name}\n"
+                     f"المعرف: @{user.username or 'بدون'}\n"
+                     f"ID: {user.id}\n"
+                     f"السؤال: {pending_answer}",
+            )
+        
         context.user_data.pop("pending_answer", None)
+        context.user_data.pop("subscription_request", None)
         return ConversationHandler.END
+        
     elif text == "الغاء":
         await main_menu_handler(update, context)
         return CHOOSE_CATEGORY
+        
     else:
         await update.message.reply_text("يرجى استخدام الأزرار فقط.", reply_markup=get_payment_reply_markup())
         return WAIT_PAYMENT
