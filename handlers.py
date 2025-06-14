@@ -208,7 +208,12 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "تم التحويل":
         if context.user_data.get("subscription_request", False):
             # طلب اشتراك
-            await update.message.reply_text("تم إرسال طلب اشتراكك وسيتم تفعيله بعد التأكد من التحويل.")
+            await update.message.reply_text(
+                "✅ تم إرسال طلب اشتراكك بنجاح!\n"
+                "سيتم تفعيل الاشتراك خلال 24 ساعة بعد التحقق من التحويل.\n"
+                "يمكنك متابعة استخدام البوت الآن:",
+                reply_markup=get_main_menu_markup(CATEGORIES)
+            )
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
                 text=f"📬 طلب اشتراك جديد:\n"
@@ -222,7 +227,12 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             # طلب سؤال واحد
             pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
-            await update.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
+            await update.message.reply_text(
+                "✅ تم إرسال طلبك بنجاح!\n"
+                "سيتم الرد على سؤالك خلال 24 ساعة بعد التحقق من التحويل.\n"
+                "يمكنك متابعة استخدام البوت الآن:",
+                reply_markup=get_main_menu_markup(CATEGORIES)
+            )
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
                 text=f"📬 طلب دفع لسؤال:\n"
@@ -234,11 +244,12 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         context.user_data.pop("pending_answer", None)
         context.user_data.pop("subscription_request", None)
-        return ConversationHandler.END
+        return CHOOSE_CATEGORY
         
     elif text == "الغاء":
         await update.message.reply_text(
-            "تم إلغاء عملية الدفع.",
+            "تم إلغاء عملية الدفع.\n"
+            "يمكنك العودة للقائمة الرئيسية:",
             reply_markup=get_main_menu_markup(CATEGORIES)
         )
         return CHOOSE_CATEGORY
