@@ -4,9 +4,10 @@ from telegram.ext import (
 )
 from handlers import (
     start, main_menu_handler, category_handler, question_number_handler,
-    confirm_free_or_sub_use_handler, payment_handler, back_to_questions_handler
+    confirm_free_or_sub_use_handler, payment_handler, back_to_questions_handler,
+    subscription_handler, subscription_confirm, admin_stats
 )
-from config import TOKEN
+from config import TOKEN, ADMIN_TELEGRAM_ID
 from users import init_users_db
 
 (
@@ -14,8 +15,9 @@ from users import init_users_db
     CHOOSE_QUESTION,
     WAIT_PAYMENT,
     MAIN_MENU,
-    FREE_OR_SUB_CONFIRM
-) = range(5)
+    FREE_OR_SUB_CONFIRM,
+    SUBSCRIPTION_FLOW
+) = range(6)
 
 def main():
     init_users_db()
@@ -24,11 +26,11 @@ def main():
     conv = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
-            MessageHandler(filters.Regex("^(القائمة الرئيسية)$"), main_menu_handler),
+            MessageHandler(filters.Regex("^(القائمة الرئيسية|اشتراك شهري)$"), main_menu_handler),
         ],
         states={
             CHOOSE_CATEGORY: [
-                MessageHandler(filters.Regex("^عن المنصة$"), category_handler),
+                MessageHandler(filters.Regex("^(عن المنصة|اشتراك شهري)$"), category_handler),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, category_handler),
             ],
             CHOOSE_QUESTION: [
@@ -42,7 +44,11 @@ def main():
             ],
             WAIT_PAYMENT: [
                 MessageHandler(filters.Regex("^(تم التحويل)$"), payment_handler),
-                MessageHandler(filters.Regex("^(رجوع|القائمة الرئيسية)$"), main_menu_handler),
+                MessageHandler(filters.Regex("^(الغاء)$"), main_menu_handler),
+            ],
+            SUBSCRIPTION_FLOW: [
+                MessageHandler(filters.Regex("^(موافق)$"), subscription_confirm),
+                MessageHandler(filters.Regex("^(رجوع|العودة الى القائمة الرئيسية)$"), main_menu_handler),
             ],
         },
         fallbacks=[
@@ -51,7 +57,9 @@ def main():
         ],
         allow_reentry=True
     )
+    
     app.add_handler(conv)
+    app.add_handler(CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID)))
     app.run_polling()
 
 if __name__ == "__main__":

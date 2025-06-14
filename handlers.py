@@ -3,19 +3,45 @@ from telegram.ext import ContextTypes, ConversationHandler
 from config import (
     CATEGORIES, ANSWERS, FREE_QUESTIONS_LIMIT, QUESTION_PRICE,
     SINGLE_PAY_MSG, ADMIN_TELEGRAM_ID, ADMIN_USERNAME, SUPPORT_USERNAME,
-    ABOUT_MSG
+    ABOUT_MSG, SUBSCRIPTION_PRICE, PAY_ACCOUNT, PAY_MSG
 )
 from keyboards import (
     get_main_menu_markup, get_payment_reply_markup,
-    get_back_main_markup, get_about_markup, get_free_confirm_markup
+    get_back_main_markup, get_about_markup, get_free_confirm_markup,
+    get_subscription_markup
 )
 from users import (
     create_or_get_user, decrement_free_questions,
-    get_user
+    get_user, set_subscription
 )
 import time
 
-CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, MAIN_MENU, FREE_OR_SUB_CONFIRM = range(5)
+CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, MAIN_MENU, FREE_OR_SUB_CONFIRM, SUBSCRIPTION_FLOW = range(6)
+
+async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_TELEGRAM_ID:
+        await update.message.reply_text("⛔ هذا الأمر للمشرفين فقط!")
+        return False
+    return True
+
+async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await admin_only(update, context):
+        return
+    
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM users")
+    total_users = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM users WHERE sub_expiry > %s", (int(time.time()),))
+    active_subs = cur.fetchone()[0]
+    conn.close()
+
+    await update.message.reply_text(
+        f"📊 إحصائيات البوت:\n"
+        f"• إجمالي المستخدمين: {total_users}\n"
+        f"• المشتركين النشطين: {active_subs}\n"
+        f"• آخر تحديث: {time.strftime('%Y-%m-%d %H:%M')}"
+    )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -36,19 +62,22 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
-    cat = update.message.text
-    if cat in CATEGORIES:
-        context.user_data["category"] = cat
-        questions = CATEGORIES[cat]
+    text = update.message.text
+    
+    if text == "اشتراك شهري":
+        return await subscription_handler(update, context)
+    elif text in CATEGORIES:
+        context.user_data["category"] = text
+        questions = CATEGORIES[text]
         context.user_data["questions"] = questions
         numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
         await update.message.reply_text(
-            f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
+            f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
             "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
             reply_markup=get_back_main_markup()
         )
         return CHOOSE_QUESTION
-    elif cat == "عن المنصة":
+    elif text == "عن المنصة":
         await update.message.reply_text(
             ABOUT_MSG,
             reply_markup=get_about_markup()
@@ -61,10 +90,44 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return CHOOSE_CATEGORY
 
+async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "اهلا بك في الاستشارات التلقائية لمنصة محامي.كوم\n\n"
+        "يمكنك تفعيل الاشتراك الشهري لهذه الخدمة بقيمة 50,000 دينار عراقي "
+        "والاستمتاع بعدد لا محدود من الاجابات التلقائية المتوفرة في هذا القسم\n\n"
+        "تتم دفع رسوم الاشتراك في الوقت الحالي عبر تطبيق (كي) المدعوم من قبل مصرف الرافدين\n"
+        "وسيتم تفعيل باقي الطرق قريبا\n\n"
+        "للاستمرار يرجى الضغط على موافق",
+        reply_markup=get_subscription_markup()
+    )
+    return SUBSCRIPTION_FLOW
+
+async def subscription_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    
+    if text == "موافق":
+        await update.message.reply_text(
+            "يرجى تحويل رسوم الاشتراك الى الحساب التالي:\n"
+            "9916153415\n\n"
+            "بعد التحويل يرجى الضغط على (تم التحويل) وسيتم تفعيل الاشتراك بعد التأكد من قبل المختص",
+            reply_markup=get_payment_reply_markup()
+        )
+        return WAIT_PAYMENT
+    elif text == "العودة الى القائمة الرئيسية":
+        await update.message.reply_text(
+            "انتقل إلى البوت الرئيسي: @mohamy_law_bot",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
+        return ConversationHandler.END
+    elif text == "رجوع":
+        await main_menu_handler(update, context)
+        return CHOOSE_CATEGORY
+
 async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_info = get_user(user.id)
     questions = context.user_data.get("questions", [])
+    
     try:
         idx = int(update.message.text) - 1
         if idx < 0 or idx >= len(questions):
@@ -75,6 +138,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
             reply_markup=get_back_main_markup()
         )
         return CHOOSE_QUESTION
+    
     question = questions[idx]
     context.user_data["pending_answer"] = question
 
@@ -107,7 +171,6 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         )
         context.user_data.pop("awaiting_free_answer", None)
         return CHOOSE_CATEGORY
-
     elif update.message.text == "رجوع":
         cat = context.user_data.get("category")
         questions = CATEGORIES.get(cat, [])
@@ -120,10 +183,8 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         )
         context.user_data.pop("awaiting_free_answer", None)
         return CHOOSE_QUESTION
-
     elif update.message.text == "القائمة الرئيسية":
         return await main_menu_handler(update, context)
-
     else:
         await update.message.reply_text("يرجى الاختيار من الأزرار المتوفرة فقط.", reply_markup=get_free_confirm_markup())
         return FREE_OR_SUB_CONFIRM
@@ -142,21 +203,26 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     return CHOOSE_QUESTION
 
 async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if hasattr(update, "message") and update.message is not None:
-        user = update.effective_user
-        text = update.message.text
-        pending_answer = context.user_data.get("pending_answer", None)
-        if text == "تم التحويل":
-            await update.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
-            await update.get_bot().send_message(
-                chat_id=ADMIN_TELEGRAM_ID,
-                text=f"طلب دفع لسؤال:\nالاسم: {user.full_name}\nالمعرف: @{user.username or 'بدون'}\nID: {user.id}\nالسؤال: {pending_answer}",
-            )
-            context.user_data.pop("pending_answer", None)
-            return ConversationHandler.END
-        elif text in ["رجوع", "القائمة الرئيسية"]:
-            await main_menu_handler(update, context)
-            return CHOOSE_CATEGORY
-        else:
-            await update.message.reply_text("يرجى استخدام الأزرار فقط.", reply_markup=get_payment_reply_markup())
-            return WAIT_PAYMENT
+    user = update.effective_user
+    text = update.message.text
+    pending_answer = context.user_data.get("pending_answer", None)
+    
+    if text == "تم التحويل":
+        await update.message.reply_text("تم إرسال طلبك وسيتم تفعيل الخدمة بعد التأكد من التحويل.")
+        await update.get_bot().send_message(
+            chat_id=ADMIN_TELEGRAM_ID,
+            text=f"طلب اشتراك جديد:\n"
+                 f"الاسم: {user.full_name}\n"
+                 f"المعرف: @{user.username or 'بدون'}\n"
+                 f"ID: {user.id}\n"
+                 f"لتفعيل الاشتراك استخدم الأمر:\n"
+                 f"/activate_{user.id}"
+        )
+        context.user_data.pop("pending_answer", None)
+        return ConversationHandler.END
+    elif text == "الغاء":
+        await main_menu_handler(update, context)
+        return CHOOSE_CATEGORY
+    else:
+        await update.message.reply_text("يرجى استخدام الأزرار فقط.", reply_markup=get_payment_reply_markup())
+        return WAIT_PAYMENT
