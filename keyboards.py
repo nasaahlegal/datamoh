@@ -1,14 +1,25 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
-def get_categories_markup(categories):
+def get_main_menu_inline_markup(categories):
     keys = list(categories.keys())
-    markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
-    markup_arr.append(["اشتراك شهري", "عن المنصة"])
-    markup_arr.append(["القائمة الرئيسية"])
-    return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
-
-def get_main_menu_markup(categories):
-    return get_categories_markup(categories)
+    keyboard = []
+    # أزرار التصنيفات
+    for i in range(0, len(keys), 2):
+        row = []
+        for j in range(2):
+            if i + j < len(keys):
+                row.append(InlineKeyboardButton(keys[i + j], callback_data=keys[i + j]))
+        keyboard.append(row)
+    # أزرار الاشتراك وعن المنصة
+    keyboard.append([
+        InlineKeyboardButton("اشتراك شهري", callback_data="اشتراك شهري"),
+        InlineKeyboardButton("عن المنصة", callback_data="عن المنصة")
+    ])
+    # زر العودة لمنصة محامي.كوم
+    keyboard.append([
+        InlineKeyboardButton("العودة الى منصة محامي.كوم", url="https://t.me/mohamy_law_bot")
+    ])
+    return InlineKeyboardMarkup(keyboard)
 
 def get_back_main_markup():
     return ReplyKeyboardMarkup([["رجوع", "القائمة الرئيسية"]], resize_keyboard=True)

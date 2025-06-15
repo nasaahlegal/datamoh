@@ -3,7 +3,7 @@ from telegram.ext import (
     ConversationHandler, filters, CallbackQueryHandler
 )
 from handlers import (
-    start, main_menu_handler, category_handler, question_number_handler,
+    start, main_menu_handler, main_menu_callback_handler, category_handler, question_number_handler,
     confirm_free_or_sub_use_handler, payment_handler, back_to_questions_handler,
     subscription_handler, subscription_confirm, admin_stats, handle_admin_callback,
     admin_subs, admin_subscription_select, admin_subs_callback
@@ -29,6 +29,8 @@ def main():
     app.add_handler(MessageHandler(filters.Regex("^[0-9]+$") & filters.User(ADMIN_TELEGRAM_ID), admin_subscription_select))
     app.add_handler(CallbackQueryHandler(admin_subs_callback, pattern=r"^(extend|delete)_[0-9]+|subs_back$"))
     app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
+    # إضافة callback handler للقائمة الرئيسية
+    app.add_handler(CallbackQueryHandler(main_menu_callback_handler))
 
     conv = ConversationHandler(
         entry_points=[
