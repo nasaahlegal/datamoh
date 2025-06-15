@@ -60,7 +60,9 @@ def main():
         fallbacks=[
             MessageHandler(filters.Regex("^(القائمة الرئيسية)$"), main_menu_handler),
             MessageHandler(filters.Regex("^(العودة إلى منصة محامي.كوم)$"), lawyer_platform_handler),
-            CommandHandler("start", start)
+            CommandHandler("start", start),
+            # هذا السطر هو الإضافة الأهم: أي رسالة غير مفهومة ترجع المستخدم للقائمة الرئيسية
+            MessageHandler(filters.ALL, main_menu_handler),
         ],
         allow_reentry=True
     )
