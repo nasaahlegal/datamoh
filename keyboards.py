@@ -1,23 +1,34 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
-def get_main_menu_markup(categories):
+def get_categories_markup(categories):
     keys = list(categories.keys())
-    markup_arr = [keys[i:i + 2] for i in range(0, len(keys), 2)]
+    markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
     markup_arr.append(["اشتراك شهري", "عن المنصة"])
-    markup_arr.append(["العودة الى منصة محامي.كوم"])
+    markup_arr.append(["القائمة الرئيسية"])
+    return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
+
+def get_main_menu_markup(categories):
+    return get_categories_markup(categories)
+
+def get_lawyer_platform_markup(categories):
+    # نفس get_categories_markup مع الزر المخصص في آخر سطر فقط
+    keys = list(categories.keys())
+    markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
+    markup_arr.append(["اشتراك شهري", "عن المنصة"])
+    markup_arr.append(["العودة إلى منصة محامي.كوم"])
     return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
 
 def get_back_main_markup():
-    return ReplyKeyboardMarkup([["رجوع", "العودة الى منصة محامي.كوم"]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([["رجوع", "القائمة الرئيسية"]], resize_keyboard=True)
 
 def get_about_markup():
-    return ReplyKeyboardMarkup([["العودة الى منصة محامي.كوم"]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([["القائمة الرئيسية"]], resize_keyboard=True)
 
 def get_payment_reply_markup():
     return ReplyKeyboardMarkup([["تم التحويل", "الغاء"]], resize_keyboard=True)
 
 def get_free_confirm_markup():
-    return ReplyKeyboardMarkup([["نعم"], ["رجوع", "العودة الى منصة محامي.كوم"]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([["نعم"], ["رجوع", "القائمة الرئيسية"]], resize_keyboard=True)
 
 def get_subscription_markup():
     return ReplyKeyboardMarkup([["موافق"], ["رجوع"]], resize_keyboard=True)

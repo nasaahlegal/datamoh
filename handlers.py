@@ -1,14 +1,15 @@
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, ConversationHandler
 from config import (
     CATEGORIES, ANSWERS, FREE_QUESTIONS_LIMIT, QUESTION_PRICE,
     SINGLE_PAY_MSG, ADMIN_TELEGRAM_ID, ADMIN_USERNAME, SUPPORT_USERNAME,
-    ABOUT_MSG, SUBSCRIPTION_PRICE, PAY_ACCOUNT, PAY_MSG
+    ABOUT_MSG, SUBSCRIPTION_PRICE, PAY_ACCOUNT, PAY_MSG, WELCOME_MSG
 )
 from keyboards import (
     get_main_menu_markup, get_payment_reply_markup,
     get_back_main_markup, get_about_markup, get_free_confirm_markup,
-    get_subscription_markup, get_admin_decision_markup, get_sub_admin_options_markup
+    get_subscription_markup, get_admin_decision_markup, get_sub_admin_options_markup,
+    get_lawyer_platform_markup
 )
 from users import (
     create_or_get_user, decrement_free_questions,
@@ -20,17 +21,6 @@ import time
 CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, FREE_OR_SUB_CONFIRM, SUBSCRIPTION_FLOW = range(5)
 
 admin_active_subs_cache = {}
-
-WELCOME_MSG = (
-    "👋 أهلاً بك في *المنصة القانونية الذكية*، إحدى خدمات *محامي.كوم* ⚖️\n\n"
-    "تتيح لك هذه المنصة الحصول على *إجابات قانونية تلقائية وسريعة*، لمساعدتك في فهم موقفك القانوني واتخاذ قرارات واثقة.\n\n"
-    "🔒 نحن نحترم خصوصيتك بالكامل، ولا نطلب أي معلومات شخصية. وجميع المحادثات تُحذف تلقائيًا بعد انتهاء الجلسة.\n\n"
-    "💳 *نظرًا لعدم توفر منصات دفع إلكترونية تلقائية داخل العراق حتى الآن*، نعتمد حاليًا على *نظام الموافقة بعد الدفع*:\n"
-    "أي أنك تقوم بتحويل المبلغ المطلوب، ثم يتم إشعار الإدارة يدويًا للموافقة وتفعيل الإجابة تلقائيًا.\n\n"
-    "🚀 لتجاوز هذه الخطوة مستقبلاً، يمكنك الاشتراك الشهري مرة واحدة، والاستمتاع بعدد غير محدود من الإجابات الفورية دون الحاجة إلى انتظار الموافقة في كل مرة.\n\n"
-    "📲 الدفع متاح حاليًا عبر تطبيق *(كي)* المعتمد من مصرف الرافدين، ونعمل على توفير خيارات دفع إلكترونية أخرى قريبًا.\n\n"
-    "👇 اختر القسم المناسب من القائمة للبدء:"
-)
 
 async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_TELEGRAM_ID:
@@ -44,7 +34,7 @@ async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await admin_only(update, context):
         return
-
+    
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM users")
@@ -136,38 +126,38 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_data.pop("selected_sub", None)
     user_data["awaiting_sub_select"] = True
 
+# ===== باقي كود المستخدمين كما هو =====
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
     await update.message.reply_text(
         WELCOME_MSG,
-        reply_markup=get_main_menu_markup(CATEGORIES),
-        parse_mode="Markdown"
+        reply_markup=get_lawyer_platform_markup(CATEGORIES)
     )
     return CHOOSE_CATEGORY
 
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text == "العودة الى منصة محامي.كوم":
-        await update.message.reply_text("يمكنك العودة إلى منصة محامي.كوم عبر هذا الرابط:\nhttps://t.me/mohamy_law_bot")
-        return CHOOSE_CATEGORY
     await update.message.reply_text(
-        WELCOME_MSG,
-        reply_markup=get_main_menu_markup(CATEGORIES),
-        parse_mode="Markdown"
+        "👇 اختر القسم المناسب من القائمة للبدء:",
+        reply_markup=get_lawyer_platform_markup(CATEGORIES)
     )
     return CHOOSE_CATEGORY
+
+async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "للدخول إلى منصة محامي.كوم يرجى الضغط على الرابط التالي:\n\n"
+        "@mohamy_law_bot"
+    )
+    # يمكنك إعادة المستخدم للقائمة الرئيسية إذا رغبت بإضافة ذلك
 
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
     text = update.message.text
-
+    
     if text == "اشتراك شهري":
         return await subscription_handler(update, context)
-    elif text == "العودة الى منصة محامي.كوم":
-        await update.message.reply_text("يمكنك العودة إلى منصة محامي.كوم عبر هذا الرابط:\nhttps://t.me/mohamy_law_bot")
-        return CHOOSE_CATEGORY
     elif text in CATEGORIES:
         context.user_data["category"] = text
         questions = CATEGORIES[text]
@@ -175,7 +165,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
         await update.message.reply_text(
             f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
-            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (العودة الى منصة محامي.كوم) للعودة.",
+            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
             reply_markup=get_back_main_markup()
         )
         return CHOOSE_QUESTION
@@ -188,7 +178,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(
             "يرجى اختيار تصنيف صحيح.",
-            reply_markup=get_main_menu_markup(CATEGORIES))
+            reply_markup=get_lawyer_platform_markup(CATEGORIES))
         return CHOOSE_CATEGORY
 
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -200,7 +190,7 @@ async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text(
             f"لديك اشتراك شهري فعّال بالفعل.\nعدد الأيام المتبقية: {days_left} يومًا.\n"
             "يمكنك الاستمرار في استخدام جميع ميزات المنصة.",
-            reply_markup=get_main_menu_markup(CATEGORIES)
+            reply_markup=get_lawyer_platform_markup(CATEGORIES)
         )
         return CHOOSE_CATEGORY
     await update.message.reply_text(
@@ -216,7 +206,7 @@ async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def subscription_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-
+    
     if text == "موافق":
         await update.message.reply_text(
             "يرجى تحويل رسوم الاشتراك الى الحساب التالي:\n"
@@ -237,7 +227,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     user = update.effective_user
     user_info = get_user(user.id)
     questions = context.user_data.get("questions", [])
-
+    
     try:
         idx = int(update.message.text) - 1
         if idx < 0 or idx >= len(questions):
@@ -248,18 +238,20 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
             reply_markup=get_back_main_markup()
         )
         return CHOOSE_QUESTION
-
+    
     question = questions[idx]
     context.user_data["pending_answer"] = question
 
+    # تحقق أولاً إن كان المستخدم مشتركاً
     if is_subscribed(user.id):
         await update.message.reply_text(
             f"الإجابة:\n{ANSWERS.get(question, 'لا توجد إجابة مسجلة لهذا السؤال.')}\n\n"
             f"(اشتراكك الشهري فعّال، متبقٍ لك {int((user_info['sub_expiry']-int(time.time()))//(24*60*60))} يوم)",
-            reply_markup=get_main_menu_markup(CATEGORIES)
+            reply_markup=get_lawyer_platform_markup(CATEGORIES)
         )
         return CHOOSE_CATEGORY
 
+    # ثم تحقق من الأسئلة المجانية المتبقية
     if user_info["free_questions_left"] > 0:
         await update.message.reply_text(
             f"لديك {user_info['free_questions_left']} سؤال مجاني متبقٍ.\n"
@@ -286,7 +278,7 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         left = user_info['free_questions_left'] - 1
         await update.message.reply_text(
             f"الإجابة:\n{ANSWERS.get(pending_answer, 'لا توجد إجابة مسجلة لهذا السؤال.')}\n\n(تبقى لديك {left} سؤال مجاني)",
-            reply_markup=get_main_menu_markup(CATEGORIES)
+            reply_markup=get_lawyer_platform_markup(CATEGORIES)
         )
         context.user_data.pop("awaiting_free_answer", None)
         return CHOOSE_CATEGORY
@@ -297,14 +289,13 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
         await update.message.reply_text(
             f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
-            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (العودة الى منصة محامي.كوم) للعودة.",
+            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
             reply_markup=get_back_main_markup()
         )
         context.user_data.pop("awaiting_free_answer", None)
         return CHOOSE_QUESTION
-    elif update.message.text == "العودة الى منصة محامي.كوم":
-        await update.message.reply_text("يمكنك العودة إلى منصة محامي.كوم عبر هذا الرابط:\nhttps://t.me/mohamy_law_bot")
-        return CHOOSE_CATEGORY
+    elif update.message.text == "القائمة الرئيسية":
+        return await main_menu_handler(update, context)
     else:
         await update.message.reply_text("يرجى الاختيار من الأزرار المتوفرة فقط.", reply_markup=get_free_confirm_markup())
         return FREE_OR_SUB_CONFIRM
@@ -316,7 +307,7 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
     await update.message.reply_text(
         f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
-        "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (العودة الى منصة محامي.كوم) للعودة.",
+        "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
         reply_markup=get_back_main_markup()
     )
     context.user_data.pop("awaiting_free_answer", None)
@@ -326,14 +317,15 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = update.message.text
     user_id = user.id
-
+    
     if text == "تم التحويل":
         if context.user_data.get("subscription_request", False):
+            # طلب اشتراك
             await update.message.reply_text(
                 "✅ تم إرسال طلب اشتراكك بنجاح!\n"
                 "سيتم تفعيل الاشتراك خلال 24 ساعة بعد التحقق من التحويل.\n"
                 "يمكنك متابعة استخدام البوت الآن:",
-                reply_markup=get_main_menu_markup(CATEGORIES)
+                reply_markup=get_lawyer_platform_markup(CATEGORIES)
             )
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
@@ -346,12 +338,13 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=get_admin_decision_markup(user.id)
             )
         else:
+            # طلب سؤال واحد
             pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
             await update.message.reply_text(
                 "✅ تم إرسال طلبك بنجاح!\n"
                 "سيتم الرد على سؤالك خلال 24 ساعة بعد التحقق من التحويل.\n"
                 "يمكنك متابعة استخدام البوت الآن:",
-                reply_markup=get_main_menu_markup(CATEGORIES)
+                reply_markup=get_lawyer_platform_markup(CATEGORIES)
             )
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
@@ -361,19 +354,19 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f"🆔 ID: {user.id}\n"
                      f"❓ السؤال: {pending_answer}",
             )
-
+        
         context.user_data.pop("pending_answer", None)
         context.user_data.pop("subscription_request", None)
         return CHOOSE_CATEGORY
-
+        
     elif text == "الغاء":
         await update.message.reply_text(
             "تم إلغاء عملية الدفع.\n"
             "يمكنك العودة للقائمة الرئيسية:",
-            reply_markup=get_main_menu_markup(CATEGORIES)
+            reply_markup=get_lawyer_platform_markup(CATEGORIES)
         )
         return CHOOSE_CATEGORY
-
+        
     else:
         await update.message.reply_text("يرجى استخدام الأزرار فقط.", reply_markup=get_payment_reply_markup())
         return WAIT_PAYMENT
@@ -381,7 +374,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
+    
     data = query.data
     user_id = int(data.split('_')[1])
 
