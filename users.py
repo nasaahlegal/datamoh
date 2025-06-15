@@ -79,15 +79,22 @@ def reset_free_questions(user_id):
     conn.commit()
     conn.close()
 
-def set_subscription(user_id, username, full_name, days=30):
-    now = int(time.time())
-    expiry = now + days*24*60*60
+def set_subscription(user_id, username, full_name, days=30, is_extension=False):
     conn = get_connection()
     cur = conn.cursor()
+    
+    if is_extension:
+        # تمديد الاشتراك: إضافة أيام إلى تاريخ الانتهاء الحالي
+        cur.execute("SELECT sub_expiry FROM users WHERE user_id = %s", (user_id,))
+        current_expiry = cur.fetchone()[0] or int(time.time())
+        expiry = current_expiry + days * 24 * 60 * 60
+    else:
+        # اشتراك جديد: بدء من الوقت الحالي
+        expiry = int(time.time()) + days * 24 * 60 * 60
+    
     cur.execute(
-        "INSERT INTO users (user_id, username, full_name, sub_expiry, free_questions_left, created_at) VALUES (%s, %s, %s, %s, 3, %s) "
-        "ON CONFLICT (user_id) DO UPDATE SET sub_expiry=%s, username=%s, full_name=%s, free_questions_left=3",
-        (user_id, username, full_name, expiry, now, expiry, username, full_name)
+        "UPDATE users SET sub_expiry = %s WHERE user_id = %s",
+        (expiry, user_id)
     )
     conn.commit()
     conn.close()

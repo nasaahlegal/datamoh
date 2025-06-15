@@ -1,5 +1,5 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler, MessageHandler, filters
 from config import (
     CATEGORIES, ANSWERS, FREE_QUESTIONS_LIMIT, QUESTION_PRICE,
     SINGLE_PAY_MSG, ADMIN_TELEGRAM_ID, ADMIN_USERNAME, SUPPORT_USERNAME,
@@ -91,13 +91,14 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "اهلا بك في الاستشارات التلقائية لمنصة محامي.كوم\n\n"
-        "يمكنك تفعيل الاشتراك الشهري لهذه الخدمة بقيمة 50,000 دينار عراقي "
-        "والاستمتاع بعدد لا محدود من الاجابات التلقائية المتوفرة في هذا القسم\n\n"
-        "تتم دفع رسوم الاشتراك في الوقت الحالي عبر تطبيق (كي) المدعوم من قبل مصرف الرافدين\n"
-        "وسيتم تفعيل باقي الطرق قريبا\n\n"
-        "للاستمرار يرجى الضغط على موافق",
-        reply_markup=get_subscription_markup()
+        "📢 *مرحبًا بك في خدمة الاستشارات القانونية التلقائية من منصة محامي.كوم*\n\n"
+        "🔓 يمكنك الآن تفعيل *الاشتراك الشهري* مقابل *50,000 دينار عراقي* فقط،"
+        " والاستفادة من *عدد غير محدود* من الإجابات الفورية في هذا القسم.\n\n"
+        "💰 *طريقة الدفع المتاحة حاليًا:* عبر تطبيق *(كي)* المدعوم من مصرف الرافدين.\n"
+        "🚧 سيتم إضافة وسائل دفع أخرى قريبًا.\n\n"
+        "✅ للمتابعة وتفعيل الاشتراك، اضغط على الزر أدناه.",
+        reply_markup=get_subscription_markup(),
+        parse_mode="Markdown"
     )
     return SUBSCRIPTION_FLOW
 
@@ -280,3 +281,114 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             text="⚠️ تم رفض طلب اشتراكك.\n"
                  "في حال وجود خطأ، يرجى التواصل مع @mohamycom"
         )
+
+# ==============================================================
+# الوظائف الجديدة لإدارة الاشتراكات (تم إضافتها في نهاية الملف)
+# ==============================================================
+
+async def list_active_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await admin_only(update, context):
+        return
+
+    conn = get_connection()
+    cur = conn.cursor()
+    now = int(time.time())
+    cur.execute("""
+        SELECT user_id, username, full_name, sub_expiry 
+        FROM users 
+        WHERE sub_expiry > %s 
+        ORDER BY sub_expiry DESC
+    """, (now,))
+    
+    active_subs = cur.fetchall()
+    conn.close()
+
+    if not active_subs:
+        await update.message.reply_text("⚠️ لا توجد اشتراكات نشطة حالياً")
+        return ConversationHandler.END
+
+    subs_list = []
+    for idx, (user_id, username, full_name, expiry) in enumerate(active_subs, start=1):
+        days_left = (expiry - now) // (24 * 60 * 60)
+        subs_list.append(
+            f"{idx}. {full_name or 'غير معروف'} (@{username or 'بدون'}) - متبقي: {days_left} يوم\n"
+            f"   ID: {user_id}"
+        )
+        context.user_data[f"sub_{idx}"] = user_id
+
+    await update.message.reply_text(
+        "📋 قائمة المشتركين النشطين:\n\n" + "\n\n".join(subs_list) +
+        "\n\nأرسل رقم التسلسل لإدارة الاشتراك أو (الرجوع)",
+        reply_markup=ReplyKeyboardMarkup([["الرجوع"]], resize_keyboard=True)
+    )
+    return "MANAGE_SUB"
+
+async def manage_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    
+    if text == "الرجوع":
+        return await list_active_subs(update, context)
+        
+    try:
+        sub_num = int(text)
+        user_id = context.user_data.get(f"sub_{sub_num}")
+        
+        if not user_id:
+            raise ValueError()
+            
+        user = get_user(user_id)
+        days_left = (user["sub_expiry"] - int(time.time())) // (24 * 60 * 60)
+        
+        await update.message.reply_text(
+            f"⚙️ إدارة اشتراك:\n"
+            f"👤 الاسم: {user['full_name'] or 'غير معروف'}\n"
+            f"🆔 ID: {user_id}\n"
+            f"⏳ المتبقي: {days_left} يوم\n\n"
+            "اختر الإجراء:",
+            reply_markup=ReplyKeyboardMarkup([
+                ["تمديد 3 أيام", "حذف الاشتراك"],
+                ["الرجوع"]
+            ], resize_keyboard=True)
+        )
+        context.user_data["current_sub"] = user_id
+        return "SUBSCRIPTION_ACTION"
+        
+    except (ValueError, IndexError):
+        await update.message.reply_text("⚠️ الرجاء إدخال رقم تسلسل صحيح")
+        return "MANAGE_SUB"
+
+async def subscription_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = context.user_data["current_sub"]
+    action = update.message.text
+    
+    if action == "تمديد 3 أيام":
+        set_subscription(user_id, "", "", 3, is_extension=True)
+        await update.message.reply_text(
+            f"✅ تم تمديد الاشتراك 3 أيام للمستخدم {user_id}",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="🎁 تم تمديد اشتراكك 3 أيام إضافية كهدية لتميزك!"
+        )
+        
+    elif action == "حذف الاشتراك":
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET sub_expiry = 0 WHERE user_id = %s", (user_id,))
+        conn.commit()
+        conn.close()
+        
+        await update.message.reply_text(
+            f"❌ تم حذف الاشتراك للمستخدم {user_id}",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="⚠️ تم إيقاف اشتراكك. يمكنك تجديده متى شئت"
+        )
+        
+    elif action == "الرجوع":
+        return await list_active_subs(update, context)
+        
+    return ConversationHandler.END

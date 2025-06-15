@@ -5,7 +5,8 @@ from telegram.ext import (
 from handlers import (
     start, main_menu_handler, category_handler, question_number_handler,
     confirm_free_or_sub_use_handler, payment_handler, back_to_questions_handler,
-    subscription_handler, subscription_confirm, admin_stats, handle_admin_callback
+    subscription_handler, subscription_confirm, admin_stats, handle_admin_callback,
+    list_active_subs, manage_subscription, subscription_action
 )
 from config import TOKEN, ADMIN_TELEGRAM_ID
 from users import init_users_db
@@ -22,6 +23,7 @@ def main():
     init_users_db()
     app = ApplicationBuilder().token(TOKEN).build()
 
+    # المحادثة الرئيسية للبوت
     conv = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
@@ -55,9 +57,22 @@ def main():
         allow_reentry=True
     )
     
+    # محادثة إدارة الاشتراكات (جديدة)
+    subs_conv = ConversationHandler(
+        entry_points=[CommandHandler("active_subs", list_active_subs, filters=filters.User(ADMIN_TELEGRAM_ID))],
+        states={
+            "MANAGE_SUB": [MessageHandler(filters.TEXT & ~filters.COMMAND, manage_subscription)],
+            "SUBSCRIPTION_ACTION": [MessageHandler(filters.TEXT & ~filters.COMMAND, subscription_action)],
+        },
+        fallbacks=[MessageHandler(filters.Regex("^الرجوع$"), list_active_subs)],
+        allow_reentry=True
+    )
+
     app.add_handler(conv)
+    app.add_handler(subs_conv)  # أضف هذه المحادثة الجديدة
     app.add_handler(CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID)))
     app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
+    
     app.run_polling()
 
 if __name__ == "__main__":
