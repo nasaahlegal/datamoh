@@ -31,7 +31,6 @@ def get_admin_decision_markup(user_id):
          InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user_id}")]
     ])
 
-# === لوحة خيارات الإدارة لمشترك محدد ===
 def get_sub_admin_options_markup(user_id):
     return InlineKeyboardMarkup([
         [

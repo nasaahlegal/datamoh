@@ -13,7 +13,7 @@ from keyboards import (
 from users import (
     create_or_get_user, decrement_free_questions,
     get_user, set_subscription, get_connection,
-    get_active_subscriptions, extend_subscription, remove_subscription
+    get_active_subscriptions, extend_subscription, remove_subscription, is_subscribed
 )
 import time
 
@@ -172,6 +172,17 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHOOSE_CATEGORY
 
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    user_info = get_user(user.id)
+    if is_subscribed(user.id):
+        now = int(time.time())
+        days_left = int((user_info["sub_expiry"] - now) // (24*60*60))
+        await update.message.reply_text(
+            f"لديك اشتراك شهري فعّال بالفعل.\nعدد الأيام المتبقية: {days_left} يومًا.\n"
+            "يمكنك الاستمرار في استخدام جميع ميزات المنصة.",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
+        return ConversationHandler.END
     await update.message.reply_text(
         "اهلا بك في الاستشارات التلقائية لمنصة محامي.كوم\n\n"
         "يمكنك تفعيل الاشتراك الشهري لهذه الخدمة بقيمة 50,000 دينار عراقي "
@@ -221,6 +232,16 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     question = questions[idx]
     context.user_data["pending_answer"] = question
 
+    # تحقق أولاً إن كان المستخدم مشتركاً
+    if is_subscribed(user.id):
+        await update.message.reply_text(
+            f"الإجابة:\n{ANSWERS.get(question, 'لا توجد إجابة مسجلة لهذا السؤال.')}\n\n"
+            f"(اشتراكك الشهري فعّال، متبقٍ لك {int((user_info['sub_expiry']-int(time.time()))//(24*60*60))} يوم)",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
+        return CHOOSE_CATEGORY
+
+    # ثم تحقق من الأسئلة المجانية المتبقية
     if user_info["free_questions_left"] > 0:
         await update.message.reply_text(
             f"لديك {user_info['free_questions_left']} سؤال مجاني متبقٍ.\n"
@@ -346,7 +367,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     
     data = query.data
     user_id = int(data.split('_')[1])
-    
+
     if data.startswith("accept_"):
         set_subscription(user_id, "", "", 30)
         await query.edit_message_text(f"✅ تم تفعيل الاشتراك للمستخدم {user_id}")
@@ -356,9 +377,11 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
                  "يمكنك الآن استخدام جميع الأسئلة بدون قيود."
         )
     elif data.startswith("reject_"):
+        # لا تحذف أو تغير الاشتراك الحالي، فقط أرسل رسالة بالرفض
         await query.edit_message_text(f"❌ تم رفض طلب اشتراك المستخدم {user_id}")
         await context.bot.send_message(
             chat_id=user_id,
-            text="⚠️ تم رفض طلب اشتراكك.\n"
+            text="⚠️ تم رفض طلب اشتراكك الجديد.\n"
+                 "إذا كان لديك اشتراك فعّال حاليًا، مازال بإمكانك الاستفادة منه حتى انتهاء مدته.\n"
                  "في حال وجود خطأ، يرجى التواصل مع @mohamycom"
         )

@@ -102,8 +102,6 @@ def get_subscription_expiry(user_id):
     user = get_user(user_id)
     return user["sub_expiry"] if user else None
 
-# === الإضافات الخاصة بالإدارة ===
-
 def get_active_subscriptions():
     conn = get_connection()
     cur = conn.cursor()

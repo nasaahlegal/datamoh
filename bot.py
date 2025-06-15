@@ -23,6 +23,13 @@ def main():
     init_users_db()
     app = ApplicationBuilder().token(TOKEN).build()
 
+    # handlers الخاصة بالادمن يجب أن تكون قبل ConversationHandler
+    app.add_handler(CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID)))
+    app.add_handler(CommandHandler("subs", admin_subs, filters=filters.User(ADMIN_TELEGRAM_ID)))
+    app.add_handler(MessageHandler(filters.Regex("^[0-9]+$") & filters.User(ADMIN_TELEGRAM_ID), admin_subscription_select))
+    app.add_handler(CallbackQueryHandler(admin_subs_callback, pattern=r"^(extend|delete)_[0-9]+|subs_back$"))
+    app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
+
     conv = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
@@ -57,11 +64,6 @@ def main():
     )
     
     app.add_handler(conv)
-    app.add_handler(CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID)))
-    app.add_handler(CommandHandler("subs", admin_subs, filters=filters.User(ADMIN_TELEGRAM_ID)))
-    app.add_handler(MessageHandler(filters.Regex("^[0-9]+$") & filters.User(ADMIN_TELEGRAM_ID), admin_subscription_select))
-    app.add_handler(CallbackQueryHandler(admin_subs_callback, pattern=r"^(extend|delete)_[0-9]+|subs_back$"))
-    app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
     app.run_polling()
 
 if __name__ == "__main__":
