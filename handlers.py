@@ -12,7 +12,7 @@ from keyboards import (
 )
 from users import (
     create_or_get_user, decrement_free_questions,
-    get_user, set_subscription, get_connection
+    get_user, set_subscription, get_connection, is_subscribed
 )
 import time
 
@@ -140,6 +140,18 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     question = questions[idx]
     context.user_data["pending_answer"] = question
 
+    # ==============================================================
+    # التحديث الهام: تحقق من حالة الاشتراك أولاً
+    # ==============================================================
+    if is_subscribed(user.id):
+        # المشتركين يحصلون على الإجابة مباشرة
+        await update.message.reply_text(
+            f"الإجابة:\n{ANSWERS.get(question, 'لا توجد إجابة مسجلة لهذا السؤال.')}",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
+        return CHOOSE_CATEGORY
+    
+    # إذا لم يكن مشتركًا، تابع العملية العادية
     if user_info["free_questions_left"] > 0:
         await update.message.reply_text(
             f"لديك {user_info['free_questions_left']} سؤال مجاني متبقٍ.\n"
@@ -283,7 +295,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         )
 
 # ==============================================================
-# الوظائف الجديدة لإدارة الاشتراكات (تم إضافتها في نهاية الملف)
+# الوظائف الجديدة لإدارة الاشتراكات (مع التحديثات)
 # ==============================================================
 
 async def list_active_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -327,7 +339,12 @@ async def manage_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE
     text = update.message.text
     
     if text == "الرجوع":
-        return await list_active_subs(update, context)
+        # العودة إلى القائمة الرئيسية
+        await update.message.reply_text(
+            "تم العودة إلى القائمة الرئيسية.",
+            reply_markup=get_main_menu_markup(CATEGORIES)
+        )
+        return ConversationHandler.END
         
     try:
         sub_num = int(text)
@@ -389,6 +406,7 @@ async def subscription_action(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         
     elif action == "الرجوع":
+        # العودة إلى قائمة المشتركين
         return await list_active_subs(update, context)
         
     return ConversationHandler.END

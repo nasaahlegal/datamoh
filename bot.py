@@ -64,12 +64,12 @@ def main():
             "MANAGE_SUB": [MessageHandler(filters.TEXT & ~filters.COMMAND, manage_subscription)],
             "SUBSCRIPTION_ACTION": [MessageHandler(filters.TEXT & ~filters.COMMAND, subscription_action)],
         },
-        fallbacks=[MessageHandler(filters.Regex("^الرجوع$"), list_active_subs)],
+        fallbacks=[],
         allow_reentry=True
     )
 
     app.add_handler(conv)
-    app.add_handler(subs_conv)  # أضف هذه المحادثة الجديدة
+    app.add_handler(subs_conv)
     app.add_handler(CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID)))
     app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
     
