@@ -3,7 +3,8 @@ import os
 TOKEN = os.environ.get("BOT_TOKEN")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-ADMIN_TELEGRAM_ID = 8109994800
+# تعديل: قراءة ADMIN_TELEGRAM_ID من متغير بيئة لضمان الأمان
+ADMIN_TELEGRAM_ID = int(os.environ.get("ADMIN_TELEGRAM_ID", 8109994800))
 ADMIN_USERNAME = "mohamycom"
 
 CATEGORIES = {

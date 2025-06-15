@@ -5,6 +5,7 @@ import time
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_connection():
+    # إذا كنت تستخدم قاعدة بيانات خارجية، يفضل ضبط sslmode='require' أو 'verify-full'
     return psycopg2.connect(DATABASE_URL, sslmode="require")
 
 def init_users_db():
@@ -66,6 +67,7 @@ def decrement_free_questions(user_id):
     if user and user["free_questions_left"] > 0:
         conn = get_connection()
         cur = conn.cursor()
+        # استخدام معاملات آمنة دائماً
         cur.execute("UPDATE users SET free_questions_left=free_questions_left-1 WHERE user_id=%s", (user_id,))
         conn.commit()
         conn.close()
@@ -84,6 +86,7 @@ def set_subscription(user_id, username, full_name, days=30):
     expiry = now + days*24*60*60
     conn = get_connection()
     cur = conn.cursor()
+    # استخدام معاملات الاستعلام (لا يوجد تكوين مباشر للنص)
     cur.execute(
         "INSERT INTO users (user_id, username, full_name, sub_expiry, free_questions_left, created_at) VALUES (%s, %s, %s, %s, 3, %s) "
         "ON CONFLICT (user_id) DO UPDATE SET sub_expiry=%s, username=%s, full_name=%s, free_questions_left=3",
@@ -132,6 +135,7 @@ def extend_subscription(user_id, days=3):
     new_expiry = max(expiry, now) + days*24*60*60
     conn = get_connection()
     cur = conn.cursor()
+    # استخدام معاملات الاستعلام الآمنة
     cur.execute(
         "UPDATE users SET sub_expiry=%s WHERE user_id=%s",
         (new_expiry, user_id)

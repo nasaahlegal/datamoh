@@ -46,7 +46,7 @@ async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await admin_only(update, context):
         return
-    
+
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM users")
@@ -109,6 +109,9 @@ async def admin_subscription_select(update: Update, context: ContextTypes.DEFAUL
     context.user_data["awaiting_sub_select"] = False
 
 async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # إضافة تحقق الصلاحية للأدمن
+    if not await admin_only(update, context):
+        return
     query = update.callback_query
     await query.answer()
     data = query.data
@@ -240,10 +243,15 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     user_info = get_user(user.id)
     questions = context.user_data.get("questions", [])
 
+    # تحقق من أن الرقم صالح وموجود ضمن قائمة الأسئلة
     try:
         idx = int(update.message.text) - 1
         if idx < 0 or idx >= len(questions):
-            raise Exception()
+            await update.message.reply_text(
+                "الرجاء إرسال رقم صحيح من القائمة.",
+                reply_markup=get_back_main_markup()
+            )
+            return CHOOSE_QUESTION
     except Exception:
         await update.message.reply_text(
             "الرجاء إرسال رقم صحيح من القائمة.",
@@ -392,6 +400,9 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return WAIT_PAYMENT
 
 async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # إضافة تحقق الصلاحية للأدمن
+    if not await admin_only(update, context):
+        return
     query = update.callback_query
     await query.answer()
     data = query.data
