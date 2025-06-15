@@ -26,7 +26,6 @@ logger = get_logger("handlers")
 CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, FREE_OR_SUB_CONFIRM, SUBSCRIPTION_FLOW = range(5)
 
 admin_active_subs_cache = {}
-
 pending_paid_questions = {}
 
 def get_answer_from_questions(question_text):
@@ -48,11 +47,6 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await admin_only(update, context):
         return
 
-    user_id = update.effective_user.id
-    if not rate_limiter.is_allowed(user_id):
-        await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
-        return
-
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM users")
@@ -70,11 +64,6 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await admin_only(update, context):
-        return
-
-    user_id = update.effective_user.id
-    if not rate_limiter.is_allowed(user_id):
-        await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
         return
 
     subs = get_active_subscriptions()
@@ -96,11 +85,6 @@ async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["awaiting_sub_select"] = True
 
 async def admin_subscription_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not rate_limiter.is_allowed(user_id):
-        await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
-        return
-
     if not context.user_data.get("awaiting_sub_select"):
         return
     text = update.message.text.strip()
@@ -128,12 +112,6 @@ async def admin_subscription_select(update: Update, context: ContextTypes.DEFAUL
 async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await admin_only(update, context):
         return
-
-    user_id = update.effective_user.id
-    if not rate_limiter.is_allowed(user_id):
-        await update.callback_query.answer("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.", show_alert=True)
-        return
-
     query = update.callback_query
     await query.answer()
     data = query.data
@@ -168,7 +146,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not rate_limiter.is_allowed(user_id):
         await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
         return
-
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
     logger.info(f"User started: {user.id} | @{user.username}")
@@ -179,11 +156,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CHOOSE_CATEGORY
 
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not rate_limiter.is_allowed(user_id):
-        await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
-        return
-
     await update.message.reply_text(
         "👇 اختر القسم المناسب من القائمة للبدء:",
         reply_markup=get_lawyer_platform_markup(CATEGORIES)
@@ -191,11 +163,6 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CHOOSE_CATEGORY
 
 async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not rate_limiter.is_allowed(user_id):
-        await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
-        return
-
     await update.message.reply_text(
         "للدخول إلى منصة محامي.كوم يرجى الضغط على الرابط التالي:\n\n"
         "@mohamy_law_bot"
@@ -206,7 +173,6 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not rate_limiter.is_allowed(user_id):
         await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
         return
-
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
     text = update.message.text
@@ -242,7 +208,6 @@ async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     if not rate_limiter.is_allowed(user_id):
         await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
         return
-
     user = update.effective_user
     user_info = get_user(user.id)
     if is_subscribed(user.id):
@@ -270,9 +235,7 @@ async def subscription_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
     if not rate_limiter.is_allowed(user_id):
         await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
         return
-
     text = update.message.text
-
     if text == "موافق":
         await update.message.reply_text(
             "يرجى تحويل رسوم الاشتراك الى الحساب التالي:\n"
@@ -295,11 +258,9 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     if not rate_limiter.is_allowed(user_id):
         await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
         return
-
     user = update.effective_user
     user_info = get_user(user.id)
     questions = context.user_data.get("questions", [])
-
     try:
         idx = int(update.message.text) - 1
         if idx < 0 or idx >= len(questions):
@@ -349,7 +310,6 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
     if not rate_limiter.is_allowed(user_id):
         await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
         return
-
     user = update.effective_user
     user_info = get_user(user.id)
     pending_answer = context.user_data.get("pending_answer")
@@ -383,11 +343,6 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         return FREE_OR_SUB_CONFIRM
 
 async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if not rate_limiter.is_allowed(user_id):
-        await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
-        return
-
     cat = context.user_data.get("category")
     questions_db = fetch_questions_by_category(cat)
     questions = [q[1] for q in questions_db] if questions_db else CATEGORIES.get(cat, [])
@@ -406,7 +361,6 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not rate_limiter.is_allowed(user_id):
         await update.message.reply_text("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.")
         return
-
     user = update.effective_user
     text = update.message.text
     user_id = user.id
@@ -471,12 +425,6 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await admin_only(update, context):
         return
-
-    user_id = update.effective_user.id
-    if not rate_limiter.is_allowed(user_id):
-        await update.callback_query.answer("🚫 يرجى الانتظار قليلاً قبل تكرار الطلب.", show_alert=True)
-        return
-
     query = update.callback_query
     await query.answer()
     data = query.data
