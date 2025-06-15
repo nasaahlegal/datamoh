@@ -6,20 +6,12 @@ from handlers import (
     start, main_menu_handler, category_handler, question_number_handler,
     confirm_free_or_sub_use_handler, payment_handler, back_to_questions_handler,
     subscription_handler, subscription_confirm, admin_stats, handle_admin_callback,
-    list_active_subs, manage_subscription, subscription_action
+    list_active_subs, manage_subscription, subscription_action,
+    CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, FREE_OR_SUB_CONFIRM,
+    SUBSCRIPTION_FLOW, ADMIN_MANAGE_SUB, ADMIN_SUB_ACTION
 )
 from config import TOKEN, ADMIN_TELEGRAM_ID
 from users import init_users_db
-
-(
-    CHOOSE_CATEGORY,
-    CHOOSE_QUESTION,
-    WAIT_PAYMENT,
-    FREE_OR_SUB_CONFIRM,
-    SUBSCRIPTION_FLOW,
-    ADMIN_MANAGE_SUB,
-    ADMIN_SUB_ACTION
-) = range(7)
 
 def main():
     init_users_db()
@@ -73,15 +65,12 @@ def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND & filters.User(ADMIN_TELEGRAM_ID), subscription_action)
             ],
         },
-        fallbacks=[
-            CommandHandler("active_subs", list_active_subs, filters=filters.User(ADMIN_TELEGRAM_ID)),
-            CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID))
-        ],
+        fallbacks=[],
         allow_reentry=True
     )
 
-    app.add_handler(conv)
     app.add_handler(admin_conv)
+    app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
     
     app.run_polling()

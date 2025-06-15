@@ -5,14 +5,17 @@ from contextlib import contextmanager
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# الحل: إعادة تسمية الدالة إلى get_connection للحفاظ على التوافق
 @contextmanager
 def get_connection():
-    conn = psycopg2.connect(DATABASE_URL, sslmode="require")
     try:
+        conn = psycopg2.connect(DATABASE_URL, sslmode="require")
         yield conn
+    except psycopg2.Error as e:
+        print(f"❌ خطأ في الاتصال بقاعدة البيانات: {e}")
+        raise
     finally:
-        conn.close()
+        if 'conn' in locals():
+            conn.close()
 
 @contextmanager
 def db_cursor(conn):
@@ -35,7 +38,6 @@ def init_users_db():
                     created_at BIGINT
                 )
             """)
-            # إضافة فهرس لتحسين الأداء
             cur.execute("CREATE INDEX IF NOT EXISTS idx_sub_expiry ON users(sub_expiry)")
         conn.commit()
 
