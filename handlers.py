@@ -19,8 +19,17 @@ import time
 
 CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, FREE_OR_SUB_CONFIRM, SUBSCRIPTION_FLOW = range(5)
 
-# كاش مؤقت لقائمة الاشتراكات أثناء جلسة الادمن
 admin_active_subs_cache = {}
+
+# الرسالة الترحيبية الموحدة
+WELCOME_MSG = (
+    "مرحباً بك في المنصة القانونية الذكية، إحدى خدمات منصة محامي.كوم.\n\n"
+    "هذه المنصة مخصصة لتقديم الاستشارات القانونية التلقائية والسريعة.\n\n"
+    "نظرًا لعدم توفر منصات دفع إلكترونية تلقائية داخل العراق في الوقت الحالي، نعتمد أسلوب الدفع اليدوي لضمان استمرار الخدمة للجميع.\n\n"
+    "يمكنك الاشتراك الشهري وتجاوز هذه العقبة للحصول على إجابات فورية لجميع أسئلتك القانونية دون انتظار.\n\n"
+    "حالياً نقبل الدفع فقط من خلال تطبيق (كي) المعتمد في العراق.\n\n"
+    "اختر القسم المناسب من القائمة أدناه للبدء:"
+)
 
 async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_TELEGRAM_ID:
@@ -50,7 +59,6 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• آخر تحديث: {time.strftime('%Y-%m-%d %H:%M')}"
     )
 
-# إدارة الاشتراكات: عرض القائمة + التعامل مع الخيارات
 async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await admin_only(update, context):
         return
@@ -61,7 +69,6 @@ async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = "📋 قائمة الاشتراكات الفعالة:\n"
     admin_active_subs_cache[update.effective_user.id] = subs
     for idx, sub in enumerate(subs, 1):
-        # عرض أفضل تعريف متوفر
         if sub['username']:
             identity = f"@{sub['username']}"
         elif sub['full_name']:
@@ -128,20 +135,20 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_data.pop("selected_sub", None)
     user_data["awaiting_sub_select"] = True
 
-# ===== باقي كود المستخدمين كما هو =====
-
+# الرسالة الترحيبية عند /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
     await update.message.reply_text(
-        "مرحباً بك في المنصة القانونية الذكية من محامي.كوم! اختر القسم:",
+        WELCOME_MSG,
         reply_markup=get_main_menu_markup(CATEGORIES)
     )
     return CHOOSE_CATEGORY
 
+# نفس الرسالة الترحيبية عند العودة للقائمة الرئيسية
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "اختر القسم المناسب:",
+        WELCOME_MSG,
         reply_markup=get_main_menu_markup(CATEGORIES)
     )
     return CHOOSE_CATEGORY
@@ -237,7 +244,6 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     question = questions[idx]
     context.user_data["pending_answer"] = question
 
-    # تحقق أولاً إن كان المستخدم مشتركاً
     if is_subscribed(user.id):
         await update.message.reply_text(
             f"الإجابة:\n{ANSWERS.get(question, 'لا توجد إجابة مسجلة لهذا السؤال.')}\n\n"
@@ -246,7 +252,6 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         )
         return CHOOSE_CATEGORY
 
-    # ثم تحقق من الأسئلة المجانية المتبقية
     if user_info["free_questions_left"] > 0:
         await update.message.reply_text(
             f"لديك {user_info['free_questions_left']} سؤال مجاني متبقٍ.\n"
@@ -315,7 +320,6 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if text == "تم التحويل":
         if context.user_data.get("subscription_request", False):
-            # طلب اشتراك
             await update.message.reply_text(
                 "✅ تم إرسال طلب اشتراكك بنجاح!\n"
                 "سيتم تفعيل الاشتراك خلال 24 ساعة بعد التحقق من التحويل.\n"
@@ -333,7 +337,6 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=get_admin_decision_markup(user.id)
             )
         else:
-            # طلب سؤال واحد
             pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
             await update.message.reply_text(
                 "✅ تم إرسال طلبك بنجاح!\n"
@@ -382,7 +385,6 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
                  "يمكنك الآن استخدام جميع الأسئلة بدون قيود."
         )
     elif data.startswith("reject_"):
-        # لا تحذف أو تغير الاشتراك الحالي، فقط أرسل رسالة بالرفض
         await query.edit_message_text(f"❌ تم رفض طلب اشتراك المستخدم {user_id}")
         await context.bot.send_message(
             chat_id=user_id,
