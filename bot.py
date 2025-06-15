@@ -24,7 +24,7 @@ from questions_db import init_questions_db
 ) = range(5)
 
 def main():
-    # تهيئة قواعد البيانات (يفضل تشغيلها مرة واحدة فقط أو عند الحاجة)
+    # تهيئة قواعد البيانات (مرة واحدة فقط، أو اتركها هنا فهي تتحقق تلقائياً)
     init_users_db()
     init_questions_db()
 
@@ -75,7 +75,7 @@ def main():
             MessageHandler(filters.Regex("^(القائمة الرئيسية)$"), main_menu_handler),
             MessageHandler(filters.Regex("^(العودة إلى منصة محامي.كوم)$"), lawyer_platform_handler),
             CommandHandler("start", start),
-            # هذا السطر هو الإضافة الأهم: أي رسالة غير مفهومة ترجع المستخدم للقائمة الرئيسية
+            # أي رسالة غير مفهومة ترجع المستخدم للقائمة الرئيسية
             MessageHandler(filters.ALL, main_menu_handler),
         ],
         allow_reentry=True

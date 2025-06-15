@@ -17,7 +17,7 @@ from users import (
     get_active_subscriptions, extend_subscription, remove_subscription, is_subscribed
 )
 from questions_db import get_questions_by_category
-from logging import log_event, log_error
+from app_logging import log_event, log_error
 from rate_limit import is_spam
 import time
 
@@ -291,3 +291,5 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("يرجى استخدام الأزرار فقط.", reply_markup=get_payment_reply_markup())
         return WAIT_PAYMENT
+
+# الدوال الإدارية (admin_stats, admin_subs, ...) لم تتغير وتظل كما كانت في مشروعك السابق

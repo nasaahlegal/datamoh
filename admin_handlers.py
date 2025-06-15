@@ -5,7 +5,7 @@ from questions_db import (
     add_question, update_question, delete_question,
     get_questions_by_category, get_all_questions, get_question_by_id
 )
-from logging import log_event, log_error
+from app_logging import log_event, log_error
 
 async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_TELEGRAM_ID:
