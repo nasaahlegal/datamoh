@@ -1,5 +1,5 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler
+from telegram import Update
+from telegram.ext import ContextTypes, ConversationHandler
 from config import (
     CATEGORIES, ANSWERS, FREE_QUESTIONS_LIMIT, QUESTION_PRICE,
     SINGLE_PAY_MSG, ADMIN_TELEGRAM_ID, ADMIN_USERNAME, SUPPORT_USERNAME,
@@ -19,7 +19,7 @@ import time
 
 CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, FREE_OR_SUB_CONFIRM, SUBSCRIPTION_FLOW = range(5)
 
-# ====== كاش مؤقت لقائمة الاشتراكات أثناء جلسة الادمن ======
+# كاش مؤقت لقائمة الاشتراكات أثناء جلسة الادمن
 admin_active_subs_cache = {}
 
 async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -50,7 +50,7 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• آخر تحديث: {time.strftime('%Y-%m-%d %H:%M')}"
     )
 
-# ==== إدارة الاشتراكات: عرض القائمة + التعامل مع الخيارات ====
+# إدارة الاشتراكات: عرض القائمة + التعامل مع الخيارات
 async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await admin_only(update, context):
         return
@@ -68,6 +68,7 @@ async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["awaiting_sub_select"] = True
 
 async def admin_subscription_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # فقط إذا كان في وضع انتظار اختيار مشترك من الادمن
     if not context.user_data.get("awaiting_sub_select"):
         return
     text = update.message.text.strip()
@@ -122,7 +123,7 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_data.pop("selected_sub", None)
     user_data["awaiting_sub_select"] = True
 
-# ==== باقي الكود الخاص بالمستخدمين كما هو ====
+# ===== باقي كود المستخدمين كما هو =====
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
