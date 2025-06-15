@@ -61,14 +61,19 @@ async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = "📋 قائمة الاشتراكات الفعالة:\n"
     admin_active_subs_cache[update.effective_user.id] = subs
     for idx, sub in enumerate(subs, 1):
-        uname = f"@{sub['username']}" if sub['username'] else "بدون معرف"
-        msg += f"{idx}. {sub['full_name']} ({uname}) — {sub['days_left']} يوم متبقٍ\n"
+        # عرض أفضل تعريف متوفر
+        if sub['username']:
+            identity = f"@{sub['username']}"
+        elif sub['full_name']:
+            identity = sub['full_name']
+        else:
+            identity = f"ID:{sub['user_id']}"
+        msg += f"{idx}. {sub['full_name']} ({identity}) — {sub['days_left']} يوم متبقٍ\n"
     msg += "\nأرسل رقم المشترك للتعديل عليه."
     await update.message.reply_text(msg)
     context.user_data["awaiting_sub_select"] = True
 
 async def admin_subscription_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # فقط إذا كان في وضع انتظار اختيار مشترك من الادمن
     if not context.user_data.get("awaiting_sub_select"):
         return
     text = update.message.text.strip()
@@ -182,7 +187,7 @@ async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             "يمكنك الاستمرار في استخدام جميع ميزات المنصة.",
             reply_markup=get_main_menu_markup(CATEGORIES)
         )
-        return ConversationHandler.END
+        return CHOOSE_CATEGORY
     await update.message.reply_text(
         "اهلا بك في الاستشارات التلقائية لمنصة محامي.كوم\n\n"
         "يمكنك تفعيل الاشتراك الشهري لهذه الخدمة بقيمة 50,000 دينار عراقي "
