@@ -8,8 +8,12 @@ from handlers import (
     subscription_handler, subscription_confirm, admin_stats, handle_admin_callback,
     admin_subs, admin_subscription_select, admin_subs_callback, lawyer_platform_handler
 )
+from admin_handlers import (
+    admin_add_question, admin_update_question, admin_delete_question, admin_list_questions
+)
 from config import TOKEN, ADMIN_TELEGRAM_ID
 from users import init_users_db
+from questions_db import init_questions_db
 
 (
     CHOOSE_CATEGORY,
@@ -20,16 +24,26 @@ from users import init_users_db
 ) = range(5)
 
 def main():
+    # تهيئة قواعد البيانات (يفضل تشغيلها مرة واحدة فقط أو عند الحاجة)
     init_users_db()
+    init_questions_db()
+
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # handlers الخاصة بالادمن يجب أن تكون قبل ConversationHandler
+    # أوامر الأدمن لإدارة الأسئلة
+    app.add_handler(CommandHandler("addq", admin_add_question, filters=filters.User(ADMIN_TELEGRAM_ID)))
+    app.add_handler(CommandHandler("updateq", admin_update_question, filters=filters.User(ADMIN_TELEGRAM_ID)))
+    app.add_handler(CommandHandler("delq", admin_delete_question, filters=filters.User(ADMIN_TELEGRAM_ID)))
+    app.add_handler(CommandHandler("listq", admin_list_questions, filters=filters.User(ADMIN_TELEGRAM_ID)))
+
+    # أوامر الأدمن الأخرى
     app.add_handler(CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID)))
     app.add_handler(CommandHandler("subs", admin_subs, filters=filters.User(ADMIN_TELEGRAM_ID)))
     app.add_handler(MessageHandler(filters.Regex("^[0-9]+$") & filters.User(ADMIN_TELEGRAM_ID), admin_subscription_select))
     app.add_handler(CallbackQueryHandler(admin_subs_callback, pattern=r"^(extend|delete)_[0-9]+|subs_back$"))
     app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
 
+    # المحادثة الرئيسية للمستخدمين
     conv = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
