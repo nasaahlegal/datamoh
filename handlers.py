@@ -16,11 +16,23 @@ from users import (
     get_user, set_subscription, get_connection,
     get_active_subscriptions, extend_subscription, remove_subscription, is_subscribed
 )
+from questions import LEGAL_QUESTIONS  # الجديد
 import time
 
 CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, FREE_OR_SUB_CONFIRM, SUBSCRIPTION_FLOW = range(5)
 
 admin_active_subs_cache = {}
+
+# تخزين مؤقت للأسئلة المدفوعة قيد الانتظار (user_id: (question_text, category))
+pending_paid_questions = {}
+
+def get_answer_from_questions(question_text):
+    # ابحث في LEGAL_QUESTIONS أولاً ثم ANSWERS
+    for category, qlist in LEGAL_QUESTIONS.items():
+        for q, a in qlist:
+            if q.strip() == question_text.strip():
+                return a
+    return ANSWERS.get(question_text, "لا توجد إجابة مسجلة لهذا السؤال.")
 
 async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_TELEGRAM_ID:
@@ -149,13 +161,12 @@ async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_
         "للدخول إلى منصة محامي.كوم يرجى الضغط على الرابط التالي:\n\n"
         "@mohamy_law_bot"
     )
-    # يمكنك إعادة المستخدم للقائمة الرئيسية إذا رغبت بإضافة ذلك
 
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
     text = update.message.text
-    
+
     if text == "اشتراك شهري":
         return await subscription_handler(update, context)
     elif text in CATEGORIES:
@@ -206,7 +217,7 @@ async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def subscription_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    
+
     if text == "موافق":
         await update.message.reply_text(
             "يرجى تحويل رسوم الاشتراك الى الحساب التالي:\n"
@@ -215,6 +226,7 @@ async def subscription_confirm(update: Update, context: ContextTypes.DEFAULT_TYP
             reply_markup=get_payment_reply_markup()
         )
         context.user_data["subscription_request"] = True
+        context.user_data["payment_type"] = "subscription"
         return WAIT_PAYMENT
     elif text == "رجوع":
         await main_menu_handler(update, context)
@@ -227,7 +239,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     user = update.effective_user
     user_info = get_user(user.id)
     questions = context.user_data.get("questions", [])
-    
+
     try:
         idx = int(update.message.text) - 1
         if idx < 0 or idx >= len(questions):
@@ -238,14 +250,15 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
             reply_markup=get_back_main_markup()
         )
         return CHOOSE_QUESTION
-    
+
     question = questions[idx]
     context.user_data["pending_answer"] = question
+    context.user_data["pending_category"] = context.user_data.get("category", "")
 
     # تحقق أولاً إن كان المستخدم مشتركاً
     if is_subscribed(user.id):
         await update.message.reply_text(
-            f"الإجابة:\n{ANSWERS.get(question, 'لا توجد إجابة مسجلة لهذا السؤال.')}\n\n"
+            f"الإجابة:\n{get_answer_from_questions(question)}\n\n"
             f"(اشتراكك الشهري فعّال، متبقٍ لك {int((user_info['sub_expiry']-int(time.time()))//(24*60*60))} يوم)",
             reply_markup=get_lawyer_platform_markup(CATEGORIES)
         )
@@ -266,6 +279,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
             reply_markup=get_payment_reply_markup()
         )
         context.user_data["subscription_request"] = False
+        context.user_data["payment_type"] = "question"
         return WAIT_PAYMENT
 
 async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -277,7 +291,7 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         decrement_free_questions(user.id)
         left = user_info['free_questions_left'] - 1
         await update.message.reply_text(
-            f"الإجابة:\n{ANSWERS.get(pending_answer, 'لا توجد إجابة مسجلة لهذا السؤال.')}\n\n(تبقى لديك {left} سؤال مجاني)",
+            f"الإجابة:\n{get_answer_from_questions(pending_answer)}\n\n(تبقى لديك {left} سؤال مجاني)",
             reply_markup=get_lawyer_platform_markup(CATEGORIES)
         )
         context.user_data.pop("awaiting_free_answer", None)
@@ -317,7 +331,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = update.message.text
     user_id = user.id
-    
+
     if text == "تم التحويل":
         if context.user_data.get("subscription_request", False):
             # طلب اشتراك
@@ -337,9 +351,11 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f"⏳ المدة: 30 يوم",
                 reply_markup=get_admin_decision_markup(user.id)
             )
+            context.user_data["last_payment_type"] = "subscription"
         else:
             # طلب سؤال واحد
             pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
+            pending_category = context.user_data.get("pending_category", "")
             await update.message.reply_text(
                 "✅ تم إرسال طلبك بنجاح!\n"
                 "سيتم الرد على سؤالك خلال 24 ساعة بعد التحقق من التحويل.\n"
@@ -353,12 +369,16 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f"🔗 المعرف: @{user.username or 'بدون'}\n"
                      f"🆔 ID: {user.id}\n"
                      f"❓ السؤال: {pending_answer}",
+                reply_markup=get_admin_decision_markup(user.id)
             )
-        
+            pending_paid_questions[user.id] = (pending_answer, pending_category)
+            context.user_data["last_payment_type"] = "question"
+
         context.user_data.pop("pending_answer", None)
+        context.user_data.pop("pending_category", None)
         context.user_data.pop("subscription_request", None)
         return CHOOSE_CATEGORY
-        
+
     elif text == "الغاء":
         await update.message.reply_text(
             "تم إلغاء عملية الدفع.\n"
@@ -366,7 +386,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=get_lawyer_platform_markup(CATEGORIES)
         )
         return CHOOSE_CATEGORY
-        
+
     else:
         await update.message.reply_text("يرجى استخدام الأزرار فقط.", reply_markup=get_payment_reply_markup())
         return WAIT_PAYMENT
@@ -374,23 +394,36 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     data = query.data
     user_id = int(data.split('_')[1])
 
     if data.startswith("accept_"):
-        set_subscription(user_id, "", "", 30)
-        await query.edit_message_text(f"✅ تم تفعيل الاشتراك للمستخدم {user_id}")
-        await context.bot.send_message(
-            chat_id=user_id,
-            text="🎉 تم تفعيل اشتراكك بنجاح لمدة 30 يومًا!\n"
-                 "يمكنك الآن استخدام جميع الأسئلة بدون قيود."
-        )
+        # إذا كان هناك سؤال مدفوع معلق لهذا المستخدم، أرسل الجواب، وإلا فعّل الاشتراك
+        if user_id in pending_paid_questions:
+            question, category = pending_paid_questions[user_id]
+            answer = get_answer_from_questions(question)
+            await query.edit_message_text(f"✅ تم قبول طلب دفع لسؤال المستخدم {user_id}.\nتم إرسال الجواب.")
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"✅ تم التحقق من الدفع.\n\nالإجابة:\n{answer}\n\nشكراً لاستخدامك المنصة."
+            )
+            del pending_paid_questions[user_id]
+        else:
+            set_subscription(user_id, "", "", 30)
+            await query.edit_message_text(f"✅ تم تفعيل الاشتراك للمستخدم {user_id}")
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="🎉 تم تفعيل اشتراكك بنجاح لمدة 30 يومًا!\n"
+                     "يمكنك الآن استخدام جميع الأسئلة بدون قيود."
+            )
     elif data.startswith("reject_"):
-        await query.edit_message_text(f"❌ تم رفض طلب اشتراك المستخدم {user_id}")
+        # إشعار بالرفض في كل الحالات
+        await query.edit_message_text(f"❌ تم رفض طلب المستخدم {user_id}")
         await context.bot.send_message(
             chat_id=user_id,
-            text="⚠️ تم رفض طلب اشتراكك الجديد.\n"
-                 "إذا كان لديك اشتراك فعّال حاليًا، مازال بإمكانك الاستفادة منه حتى انتهاء مدته.\n"
+            text="⚠️ تم رفض طلبك الجديد (دفع/اشتراك).\n"
                  "في حال وجود خطأ، يرجى التواصل مع @mohamycom"
         )
+        # إذا كان سؤال مدفوع معلق، احذفه
+        if user_id in pending_paid_questions:
+            del pending_paid_questions[user_id]

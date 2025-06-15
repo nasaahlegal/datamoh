@@ -11,7 +11,6 @@ def get_main_menu_markup(categories):
     return get_categories_markup(categories)
 
 def get_lawyer_platform_markup(categories):
-    # نفس get_categories_markup مع الزر المخصص في آخر سطر فقط
     keys = list(categories.keys())
     markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
     markup_arr.append(["اشتراك شهري", "عن المنصة"])
