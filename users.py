@@ -1,34 +1,48 @@
 import os
 import psycopg2
 import time
+from contextlib import contextmanager
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-def get_connection():
-    return psycopg2.connect(DATABASE_URL, sslmode="require")
+@contextmanager
+def db_connection():
+    conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+@contextmanager
+def db_cursor(conn):
+    cur = conn.cursor()
+    try:
+        yield cur
+    finally:
+        cur.close()
 
 def init_users_db():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            user_id BIGINT PRIMARY KEY,
-            username TEXT,
-            full_name TEXT,
-            sub_expiry BIGINT DEFAULT 0,
-            free_questions_left INT DEFAULT 3,
-            created_at BIGINT
-        )
-    """)
-    conn.commit()
-    conn.close()
+    with db_connection() as conn:
+        with db_cursor(conn) as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id BIGINT PRIMARY KEY,
+                    username TEXT,
+                    full_name TEXT,
+                    sub_expiry BIGINT DEFAULT 0,
+                    free_questions_left INT DEFAULT 3,
+                    created_at BIGINT
+                )
+            """)
+            # إضافة فهرس لتحسين الأداء
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_sub_expiry ON users(sub_expiry)")
+        conn.commit()
 
 def get_user(user_id):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT user_id, username, full_name, sub_expiry, free_questions_left FROM users WHERE user_id=%s", (user_id,))
-    row = cur.fetchone()
-    conn.close()
+    with db_connection() as conn:
+        with db_cursor(conn) as cur:
+            cur.execute("SELECT user_id, username, full_name, sub_expiry, free_questions_left FROM users WHERE user_id=%s", (user_id,))
+            row = cur.fetchone()
     if row:
         return {
             "user_id": row[0],
@@ -44,6 +58,8 @@ def get_user(user_id):
         "sub_expiry": 0,
         "free_questions_left": 3
     }
+
+# ... (بقية الدوال بنفس الهيكل مع استخدام db_connection و db_cursor)
 
 def create_or_get_user(user_id, username, full_name):
     user = get_user(user_id)

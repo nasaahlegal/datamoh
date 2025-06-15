@@ -298,6 +298,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
 # الوظائف الجديدة لإدارة الاشتراكات (مع التحديثات)
 # ==============================================================
 
+# ... (بقية الكود كما هو)
+
 async def list_active_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await admin_only(update, context):
         return
@@ -317,66 +319,71 @@ async def list_active_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not active_subs:
         await update.message.reply_text("⚠️ لا توجد اشتراكات نشطة حالياً")
-        return ConversationHandler.END
+        return ADMIN_MANAGE_SUB  # تحديث هنا
 
     subs_list = []
+    context.user_data["active_subs"] = {}  # إضافة لتخزين البيانات
     for idx, (user_id, username, full_name, expiry) in enumerate(active_subs, start=1):
         days_left = (expiry - now) // (24 * 60 * 60)
         subs_list.append(
             f"{idx}. {full_name or 'غير معروف'} (@{username or 'بدون'}) - متبقي: {days_left} يوم\n"
             f"   ID: {user_id}"
         )
-        context.user_data[f"sub_{idx}"] = user_id
+        context.user_data["active_subs"][str(idx)] = user_id  # تخزين برقم التسلسل
 
     await update.message.reply_text(
         "📋 قائمة المشتركين النشطين:\n\n" + "\n\n".join(subs_list) +
-        "\n\nأرسل رقم التسلسل لإدارة الاشتراك أو (الرجوع)",
-        reply_markup=ReplyKeyboardMarkup([["الرجوع"]], resize_keyboard=True)
+        "\n\nأرسل رقم التسلسل لإدارة الاشتراك أو (رجوع) للعودة",
+        reply_markup=ReplyKeyboardMarkup([["رجوع"]], resize_keyboard=True)
     )
-    return "MANAGE_SUB"
+    return ADMIN_MANAGE_SUB  # تحديث هنا
 
 async def manage_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     
-    if text == "الرجوع":
-        # العودة إلى القائمة الرئيسية
+    if text == "رجوع":
         await update.message.reply_text(
             "تم العودة إلى القائمة الرئيسية.",
             reply_markup=get_main_menu_markup(CATEGORIES)
         )
         return ConversationHandler.END
         
-    try:
-        sub_num = int(text)
-        user_id = context.user_data.get(f"sub_{sub_num}")
+    # التحقق من وجود المشتركين في user_data
+    if "active_subs" not in context.user_data or not context.user_data["active_subs"]:
+        await update.message.reply_text("❌ لم يتم تحميل قائمة المشتركين، يرجى المحاولة مرة أخرى")
+        return await list_active_subs(update, context)
+    
+    # التحقق من أن الإدخال رقم صحيح
+    if text not in context.user_data["active_subs"]:
+        await update.message.reply_text("⚠️ الرجاء إدخال رقم تسلسل صحيح من القائمة")
+        return ADMIN_MANAGE_SUB
         
-        if not user_id:
-            raise ValueError()
-            
-        user = get_user(user_id)
-        days_left = (user["sub_expiry"] - int(time.time())) // (24 * 60 * 60)
-        
-        await update.message.reply_text(
-            f"⚙️ إدارة اشتراك:\n"
-            f"👤 الاسم: {user['full_name'] or 'غير معروف'}\n"
-            f"🆔 ID: {user_id}\n"
-            f"⏳ المتبقي: {days_left} يوم\n\n"
-            "اختر الإجراء:",
-            reply_markup=ReplyKeyboardMarkup([
-                ["تمديد 3 أيام", "حذف الاشتراك"],
-                ["الرجوع"]
-            ], resize_keyboard=True)
-        )
-        context.user_data["current_sub"] = user_id
-        return "SUBSCRIPTION_ACTION"
-        
-    except (ValueError, IndexError):
-        await update.message.reply_text("⚠️ الرجاء إدخال رقم تسلسل صحيح")
-        return "MANAGE_SUB"
+    user_id = context.user_data["active_subs"][text]
+    user = get_user(user_id)
+    days_left = (user["sub_expiry"] - int(time.time())) // (24 * 60 * 60)
+    
+    context.user_data["current_sub"] = user_id
+    
+    await update.message.reply_text(
+        f"⚙️ إدارة اشتراك:\n"
+        f"👤 الاسم: {user['full_name'] or 'غير معروف'}\n"
+        f"🆔 ID: {user_id}\n"
+        f"⏳ المتبقي: {days_left} يوم\n\n"
+        "اختر الإجراء:",
+        reply_markup=ReplyKeyboardMarkup([
+            ["تمديد 3 أيام", "حذف الاشتراك"],
+            ["رجوع"]
+        ], resize_keyboard=True)
+    )
+    return ADMIN_SUB_ACTION  # تحديث هنا
 
 async def subscription_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = context.user_data["current_sub"]
+    user_id = context.user_data.get("current_sub")
     action = update.message.text
+    
+    if not user_id:
+        await update.message.reply_text("❌ لم يتم تحديد مشترك، يرجى المحاولة مرة أخرى")
+        return await list_active_subs(update, context)
     
     if action == "تمديد 3 أيام":
         set_subscription(user_id, "", "", 3, is_extension=True)
@@ -405,8 +412,11 @@ async def subscription_action(update: Update, context: ContextTypes.DEFAULT_TYPE
             text="⚠️ تم إيقاف اشتراكك. يمكنك تجديده متى شئت"
         )
         
-    elif action == "الرجوع":
-        # العودة إلى قائمة المشتركين
+    elif action == "رجوع":
         return await list_active_subs(update, context)
-        
+    
+    # تنظيف البيانات المؤقتة
+    context.user_data.pop("current_sub", None)
+    context.user_data.pop("active_subs", None)
+    
     return ConversationHandler.END

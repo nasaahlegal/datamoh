@@ -16,8 +16,10 @@ from users import init_users_db
     CHOOSE_QUESTION,
     WAIT_PAYMENT,
     FREE_OR_SUB_CONFIRM,
-    SUBSCRIPTION_FLOW
-) = range(5)
+    SUBSCRIPTION_FLOW,
+    ADMIN_MANAGE_SUB,
+    ADMIN_SUB_ACTION
+) = range(7)
 
 def main():
     init_users_db()
@@ -57,20 +59,29 @@ def main():
         allow_reentry=True
     )
     
-    # محادثة إدارة الاشتراكات (جديدة)
-    subs_conv = ConversationHandler(
-        entry_points=[CommandHandler("active_subs", list_active_subs, filters=filters.User(ADMIN_TELEGRAM_ID))],
+    # محادثة إدارة الاشتراكات للمشرفين
+    admin_conv = ConversationHandler(
+        entry_points=[
+            CommandHandler("active_subs", list_active_subs, filters=filters.User(ADMIN_TELEGRAM_ID)),
+            CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID))
+        ],
         states={
-            "MANAGE_SUB": [MessageHandler(filters.TEXT & ~filters.COMMAND, manage_subscription)],
-            "SUBSCRIPTION_ACTION": [MessageHandler(filters.TEXT & ~filters.COMMAND, subscription_action)],
+            ADMIN_MANAGE_SUB: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND & filters.User(ADMIN_TELEGRAM_ID), manage_subscription)
+            ],
+            ADMIN_SUB_ACTION: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND & filters.User(ADMIN_TELEGRAM_ID), subscription_action)
+            ],
         },
-        fallbacks=[],
+        fallbacks=[
+            CommandHandler("active_subs", list_active_subs, filters=filters.User(ADMIN_TELEGRAM_ID)),
+            CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID))
+        ],
         allow_reentry=True
     )
 
     app.add_handler(conv)
-    app.add_handler(subs_conv)
-    app.add_handler(CommandHandler("admin", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID)))
+    app.add_handler(admin_conv)
     app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
     
     app.run_polling()
