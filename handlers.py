@@ -1,5 +1,5 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
-from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler, MessageHandler, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler
 from config import (
     CATEGORIES, ANSWERS, FREE_QUESTIONS_LIMIT, QUESTION_PRICE,
     SINGLE_PAY_MSG, ADMIN_TELEGRAM_ID, ADMIN_USERNAME, SUPPORT_USERNAME,
@@ -8,28 +8,26 @@ from config import (
 from keyboards import (
     get_main_menu_markup, get_payment_reply_markup,
     get_back_main_markup, get_about_markup, get_free_confirm_markup,
-    get_subscription_markup, get_admin_decision_markup,
-    get_admin_back_markup, get_admin_sub_actions_markup
+    get_subscription_markup, get_admin_decision_markup, get_sub_admin_options_markup
 )
 from users import (
     create_or_get_user, decrement_free_questions,
-    get_user, set_subscription, get_connection, is_subscribed
+    get_user, set_subscription, get_connection,
+    get_active_subscriptions, extend_subscription, remove_subscription
 )
 import time
 
-(
-    CHOOSE_CATEGORY,
-    CHOOSE_QUESTION,
-    WAIT_PAYMENT,
-    FREE_OR_SUB_CONFIRM,
-    SUBSCRIPTION_FLOW,
-    ADMIN_MANAGE_SUB,
-    ADMIN_SUB_ACTION
-) = range(7)
+CHOOSE_CATEGORY, CHOOSE_QUESTION, WAIT_PAYMENT, FREE_OR_SUB_CONFIRM, SUBSCRIPTION_FLOW = range(5)
+
+# ====== كاش مؤقت لقائمة الاشتراكات أثناء جلسة الادمن ======
+admin_active_subs_cache = {}
 
 async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_TELEGRAM_ID:
-        await update.message.reply_text("⛔ هذا الأمر للمشرفين فقط!")
+        if hasattr(update, "message") and update.message:
+            await update.message.reply_text("⛔ هذا الأمر للمشرفين فقط!")
+        elif hasattr(update, "callback_query") and update.callback_query:
+            await update.callback_query.answer("⛔ هذا الأمر للمشرفين فقط!", show_alert=True)
         return False
     return True
 
@@ -51,6 +49,80 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• المشتركين النشطين: {active_subs}\n"
         f"• آخر تحديث: {time.strftime('%Y-%m-%d %H:%M')}"
     )
+
+# ==== إدارة الاشتراكات: عرض القائمة + التعامل مع الخيارات ====
+async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await admin_only(update, context):
+        return
+    subs = get_active_subscriptions()
+    if not subs:
+        await update.message.reply_text("لا يوجد اشتراكات شهرية فعالة حاليًا.")
+        return
+    msg = "📋 قائمة الاشتراكات الفعالة:\n"
+    admin_active_subs_cache[update.effective_user.id] = subs
+    for idx, sub in enumerate(subs, 1):
+        uname = f"@{sub['username']}" if sub['username'] else "بدون معرف"
+        msg += f"{idx}. {sub['full_name']} ({uname}) — {sub['days_left']} يوم متبقٍ\n"
+    msg += "\nأرسل رقم المشترك للتعديل عليه."
+    await update.message.reply_text(msg)
+    context.user_data["awaiting_sub_select"] = True
+
+async def admin_subscription_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.user_data.get("awaiting_sub_select"):
+        return
+    text = update.message.text.strip()
+    if not text.isdigit():
+        await update.message.reply_text("يرجى إرسال رقم تسلسل صحيح.")
+        return
+    idx = int(text) - 1
+    subs = admin_active_subs_cache.get(update.effective_user.id, [])
+    if idx < 0 or idx >= len(subs):
+        await update.message.reply_text("رقم غير صحيح.")
+        return
+    sub = subs[idx]
+    context.user_data["selected_sub"] = sub
+    await update.message.reply_text(
+        f"المستخدم: {sub['full_name']} (@{sub['username'] or 'بدون'})\n"
+        f"الايام المتبقية: {sub['days_left']}"
+    )
+    await update.message.reply_text(
+        "اختر إجراء:",
+        reply_markup=get_sub_admin_options_markup(sub["user_id"])
+    )
+    context.user_data["awaiting_sub_action"] = True
+    context.user_data["awaiting_sub_select"] = False
+
+async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    user_data = context.user_data
+    sub = user_data.get("selected_sub")
+    if data == "subs_back":
+        await admin_subs(update, context)
+        return
+    if not sub:
+        await query.edit_message_text("حدث خطأ. الرجاء إعادة المحاولة.")
+        return
+    user_id = sub["user_id"]
+    if data.startswith("extend_"):
+        extend_subscription(user_id, 3)
+        await query.edit_message_text("✅ تم تمديد الاشتراك 3 أيام.")
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="🎁 تم تمديد اشتراكك لمدة 3 أيام إضافية كهدية لتميزك من الإدارة!"
+        )
+    elif data.startswith("delete_"):
+        remove_subscription(user_id)
+        await query.edit_message_text("❌ تم حذف الاشتراك لهذا المستخدم.")
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="⚠️ تم إلغاء اشتراكك الشهري من قبل الإدارة. إذا كان لديك اعتراض يرجى مراسلتنا."
+        )
+    user_data.pop("selected_sub", None)
+    user_data["awaiting_sub_select"] = True
+
+# ==== باقي الكود الخاص بالمستخدمين كما هو ====
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -100,14 +172,13 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "📢 *مرحبًا بك في خدمة الاستشارات القانونية التلقائية من منصة محامي.كوم*\n\n"
-        "🔓 يمكنك الآن تفعيل *الاشتراك الشهري* مقابل *50,000 دينار عراقي* فقط،"
-        " والاستفادة من *عدد غير محدود* من الإجابات الفورية في هذا القسم.\n\n"
-        "💰 *طريقة الدفع المتاحة حاليًا:* عبر تطبيق *(كي)* المدعوم من مصرف الرافدين.\n"
-        "🚧 سيتم إضافة وسائل دفع أخرى قريبًا.\n\n"
-        "✅ للمتابعة وتفعيل الاشتراك، اضغط على الزر أدناه.",
-        reply_markup=get_subscription_markup(),
-        parse_mode="Markdown"
+        "اهلا بك في الاستشارات التلقائية لمنصة محامي.كوم\n\n"
+        "يمكنك تفعيل الاشتراك الشهري لهذه الخدمة بقيمة 50,000 دينار عراقي "
+        "والاستمتاع بعدد لا محدود من الاجابات التلقائية المتوفرة في هذا القسم\n\n"
+        "تتم دفع رسوم الاشتراك في الوقت الحالي عبر تطبيق (كي) المدعوم من قبل مصرف الرافدين\n"
+        "وسيتم تفعيل باقي الطرق قريبا\n\n"
+        "للاستمرار يرجى الضغط على موافق",
+        reply_markup=get_subscription_markup()
     )
     return SUBSCRIPTION_FLOW
 
@@ -149,13 +220,6 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     question = questions[idx]
     context.user_data["pending_answer"] = question
 
-    if is_subscribed(user.id):
-        await update.message.reply_text(
-            f"الإجابة:\n{ANSWERS.get(question, 'لا توجد إجابة مسجلة لهذا السؤال.')}",
-            reply_markup=get_main_menu_markup(CATEGORIES)
-        )
-        return CHOOSE_CATEGORY
-    
     if user_info["free_questions_left"] > 0:
         await update.message.reply_text(
             f"لديك {user_info['free_questions_left']} سؤال مجاني متبقٍ.\n"
@@ -224,6 +288,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if text == "تم التحويل":
         if context.user_data.get("subscription_request", False):
+            # طلب اشتراك
             await update.message.reply_text(
                 "✅ تم إرسال طلب اشتراكك بنجاح!\n"
                 "سيتم تفعيل الاشتراك خلال 24 ساعة بعد التحقق من التحويل.\n"
@@ -241,6 +306,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=get_admin_decision_markup(user.id)
             )
         else:
+            # طلب سؤال واحد
             pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
             await update.message.reply_text(
                 "✅ تم إرسال طلبك بنجاح!\n"
@@ -295,118 +361,3 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             text="⚠️ تم رفض طلب اشتراكك.\n"
                  "في حال وجود خطأ، يرجى التواصل مع @mohamycom"
         )
-
-async def list_active_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await admin_only(update, context):
-        return
-
-    conn = get_connection()
-    cur = conn.cursor()
-    now = int(time.time())
-    cur.execute("""
-        SELECT user_id, username, full_name, sub_expiry 
-        FROM users 
-        WHERE sub_expiry > %s 
-        ORDER BY sub_expiry DESC
-    """, (now,))
-    
-    active_subs = cur.fetchall()
-    conn.close()
-
-    if not active_subs:
-        await update.message.reply_text("⚠️ لا توجد اشتراكات نشطة حالياً")
-        return ADMIN_MANAGE_SUB
-
-    subs_list = []
-    context.user_data["active_subs"] = {}
-    for idx, (user_id, username, full_name, expiry) in enumerate(active_subs, start=1):
-        days_left = (expiry - now) // (24 * 60 * 60)
-        subs_list.append(
-            f"{idx}. {full_name or 'غير معروف'} (@{username or 'بدون'}) - متبقي: {days_left} يوم\n"
-            f"   ID: {user_id}"
-        )
-        context.user_data["active_subs"][str(idx)] = user_id
-
-    await update.message.reply_text(
-        "📋 قائمة المشتركين النشطين:\n\n" + "\n\n".join(subs_list) +
-        "\n\nأرسل رقم التسلسل لإدارة الاشتراك أو (رجوع) للعودة",
-        reply_markup=get_admin_back_markup()
-    )
-    return ADMIN_MANAGE_SUB
-
-async def manage_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    
-    if text == "رجوع":
-        await update.message.reply_text(
-            "تم العودة إلى القائمة الرئيسية.",
-            reply_markup=get_main_menu_markup(CATEGORIES)
-        )
-        return ConversationHandler.END
-        
-    if "active_subs" not in context.user_data or not context.user_data["active_subs"]:
-        await update.message.reply_text("❌ لم يتم تحميل قائمة المشتركين، يرجى المحاولة مرة أخرى")
-        return await list_active_subs(update, context)
-    
-    if text not in context.user_data["active_subs"]:
-        await update.message.reply_text("⚠️ الرجاء إدخال رقم تسلسل صحيح من القائمة")
-        return ADMIN_MANAGE_SUB
-        
-    user_id = context.user_data["active_subs"][text]
-    user = get_user(user_id)
-    days_left = (user["sub_expiry"] - int(time.time())) // (24 * 60 * 60)
-    
-    context.user_data["current_sub"] = user_id
-    
-    await update.message.reply_text(
-        f"⚙️ إدارة اشتراك:\n"
-        f"👤 الاسم: {user['full_name'] or 'غير معروف'}\n"
-        f"🆔 ID: {user_id}\n"
-        f"⏳ المتبقي: {days_left} يوم\n\n"
-        "اختر الإجراء:",
-        reply_markup=get_admin_sub_actions_markup()
-    )
-    return ADMIN_SUB_ACTION
-
-async def subscription_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = context.user_data.get("current_sub")
-    action = update.message.text
-    
-    if not user_id:
-        await update.message.reply_text("❌ لم يتم تحديد مشترك، يرجى المحاولة مرة أخرى")
-        return await list_active_subs(update, context)
-    
-    if action == "تمديد 3 أيام":
-        set_subscription(user_id, "", "", 3, is_extension=True)
-        await update.message.reply_text(
-            f"✅ تم تمديد الاشتراك 3 أيام للمستخدم {user_id}",
-            reply_markup=get_main_menu_markup(CATEGORIES)
-        )
-        await context.bot.send_message(
-            chat_id=user_id,
-            text="🎁 تم تمديد اشتراكك 3 أيام إضافية كهدية لتميزك!"
-        )
-        
-    elif action == "حذف الاشتراك":
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE users SET sub_expiry = 0 WHERE user_id = %s", (user_id,))
-        conn.commit()
-        conn.close()
-        
-        await update.message.reply_text(
-            f"❌ تم حذف الاشتراك للمستخدم {user_id}",
-            reply_markup=get_main_menu_markup(CATEGORIES)
-        )
-        await context.bot.send_message(
-            chat_id=user_id,
-            text="⚠️ تم إيقاف اشتراكك. يمكنك تجديده متى شئت"
-        )
-        
-    elif action == "رجوع":
-        return await list_active_subs(update, context)
-    
-    context.user_data.pop("current_sub", None)
-    context.user_data.pop("active_subs", None)
-    
-    return ConversationHandler.END

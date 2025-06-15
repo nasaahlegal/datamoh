@@ -1,11 +1,14 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
-def get_main_menu_markup(categories):
+def get_categories_markup(categories):
     keys = list(categories.keys())
     markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
     markup_arr.append(["اشتراك شهري", "عن المنصة"])
     markup_arr.append(["القائمة الرئيسية"])
     return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
+
+def get_main_menu_markup(categories):
+    return get_categories_markup(categories)
 
 def get_back_main_markup():
     return ReplyKeyboardMarkup([["رجوع", "القائمة الرئيسية"]], resize_keyboard=True)
@@ -28,11 +31,14 @@ def get_admin_decision_markup(user_id):
          InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user_id}")]
     ])
 
-def get_admin_back_markup():
-    return ReplyKeyboardMarkup([["رجوع"]], resize_keyboard=True)
-
-def get_admin_sub_actions_markup():
-    return ReplyKeyboardMarkup([
-        ["تمديد 3 أيام", "حذف الاشتراك"],
-        ["رجوع"]
-    ], resize_keyboard=True)
+# === لوحة خيارات الإدارة لمشترك محدد ===
+def get_sub_admin_options_markup(user_id):
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("⏳ تمديد 3 أيام", callback_data=f"extend_{user_id}"),
+            InlineKeyboardButton("❌ حذف الاشتراك", callback_data=f"delete_{user_id}")
+        ],
+        [
+            InlineKeyboardButton("⬅️ رجوع", callback_data="subs_back")
+        ]
+    ])
