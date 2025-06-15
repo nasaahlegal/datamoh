@@ -5,8 +5,9 @@ from contextlib import contextmanager
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+# الحل: إعادة تسمية الدالة إلى get_connection للحفاظ على التوافق
 @contextmanager
-def db_connection():
+def get_connection():
     conn = psycopg2.connect(DATABASE_URL, sslmode="require")
     try:
         yield conn
@@ -22,7 +23,7 @@ def db_cursor(conn):
         cur.close()
 
 def init_users_db():
-    with db_connection() as conn:
+    with get_connection() as conn:
         with db_cursor(conn) as cur:
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
@@ -39,7 +40,7 @@ def init_users_db():
         conn.commit()
 
 def get_user(user_id):
-    with db_connection() as conn:
+    with get_connection() as conn:
         with db_cursor(conn) as cur:
             cur.execute("SELECT user_id, username, full_name, sub_expiry, free_questions_left FROM users WHERE user_id=%s", (user_id,))
             row = cur.fetchone()
@@ -59,61 +60,53 @@ def get_user(user_id):
         "free_questions_left": 3
     }
 
-# ... (بقية الدوال بنفس الهيكل مع استخدام db_connection و db_cursor)
-
 def create_or_get_user(user_id, username, full_name):
     user = get_user(user_id)
     if user and user["free_questions_left"] is not None:
         return user
     now = int(time.time())
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO users (user_id, username, full_name, created_at) VALUES (%s, %s, %s, %s) "
-        "ON CONFLICT (user_id) DO NOTHING",
-        (user_id, username, full_name, now)
-    )
-    conn.commit()
-    conn.close()
+    with get_connection() as conn:
+        with db_cursor(conn) as cur:
+            cur.execute(
+                "INSERT INTO users (user_id, username, full_name, created_at) VALUES (%s, %s, %s, %s) "
+                "ON CONFLICT (user_id) DO NOTHING",
+                (user_id, username, full_name, now)
+            )
+        conn.commit()
     return get_user(user_id)
 
 def decrement_free_questions(user_id):
     user = get_user(user_id)
     if user and user["free_questions_left"] > 0:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE users SET free_questions_left=free_questions_left-1 WHERE user_id=%s", (user_id,))
-        conn.commit()
-        conn.close()
+        with get_connection() as conn:
+            with db_cursor(conn) as cur:
+                cur.execute("UPDATE users SET free_questions_left=free_questions_left-1 WHERE user_id=%s", (user_id,))
+            conn.commit()
         return True
     return False
 
 def reset_free_questions(user_id):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE users SET free_questions_left=3 WHERE user_id=%s", (user_id,))
-    conn.commit()
-    conn.close()
+    with get_connection() as conn:
+        with db_cursor(conn) as cur:
+            cur.execute("UPDATE users SET free_questions_left=3 WHERE user_id=%s", (user_id,))
+        conn.commit()
 
 def set_subscription(user_id, username, full_name, days=30, is_extension=False):
-    conn = get_connection()
-    cur = conn.cursor()
-    
-    if is_extension:
-        # تمديد الاشتراك: إضافة أيام إلى تاريخ الانتهاء الحالي
-        cur.execute("SELECT sub_expiry FROM users WHERE user_id = %s", (user_id,))
-        current_expiry = cur.fetchone()[0] or int(time.time())
-        expiry = current_expiry + days * 24 * 60 * 60
-    else:
-        # اشتراك جديد: بدء من الوقت الحالي
-        expiry = int(time.time()) + days * 24 * 60 * 60
-    
-    cur.execute(
-        "UPDATE users SET sub_expiry = %s WHERE user_id = %s",
-        (expiry, user_id)
-    )
-    conn.commit()
-    conn.close()
+    with get_connection() as conn:
+        with db_cursor(conn) as cur:
+            if is_extension:
+                cur.execute("SELECT sub_expiry FROM users WHERE user_id = %s", (user_id,))
+                row = cur.fetchone()
+                current_expiry = row[0] if row else int(time.time())
+                expiry = current_expiry + days * 24 * 60 * 60
+            else:
+                expiry = int(time.time()) + days * 24 * 60 * 60
+            
+            cur.execute(
+                "UPDATE users SET sub_expiry = %s WHERE user_id = %s",
+                (expiry, user_id)
+            )
+        conn.commit()
 
 def is_subscribed(user_id):
     user = get_user(user_id)

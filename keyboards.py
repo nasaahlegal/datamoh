@@ -45,7 +45,3 @@ def get_admin_sub_actions_markup():
         ["تمديد 3 أيام", "حذف الاشتراك"],
         ["رجوع"]
     ], resize_keyboard=True)
-
-def get_cancel_markup():
-    """زر الإلغاء البسيط"""
-    return ReplyKeyboardMarkup([["الغاء"]], resize_keyboard=True)
