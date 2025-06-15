@@ -6,7 +6,7 @@ from config import (
     ABOUT_MSG, SUBSCRIPTION_PRICE, PAY_ACCOUNT, PAY_MSG
 )
 from keyboards import (
-    get_main_menu_inline_markup, get_payment_reply_markup,
+    get_main_menu_markup, get_payment_reply_markup,
     get_back_main_markup, get_about_markup, get_free_confirm_markup,
     get_subscription_markup, get_admin_decision_markup, get_sub_admin_options_markup
 )
@@ -141,46 +141,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     create_or_get_user(user.id, user.username, user.full_name)
     await update.message.reply_text(
         WELCOME_MSG,
-        reply_markup=get_main_menu_inline_markup(CATEGORIES),
+        reply_markup=get_main_menu_markup(CATEGORIES),
         parse_mode="Markdown"
     )
     return CHOOSE_CATEGORY
 
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if text == "العودة الى منصة محامي.كوم":
+        await update.message.reply_text("يمكنك العودة إلى منصة محامي.كوم عبر هذا الرابط:\nhttps://t.me/mohamy_law_bot")
+        return CHOOSE_CATEGORY
     await update.message.reply_text(
         WELCOME_MSG,
-        reply_markup=get_main_menu_inline_markup(CATEGORIES),
+        reply_markup=get_main_menu_markup(CATEGORIES),
         parse_mode="Markdown"
     )
     return CHOOSE_CATEGORY
-
-async def main_menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    text = query.data
-
-    if text == "اشتراك شهري":
-        await subscription_handler(update, context)
-    elif text in CATEGORIES:
-        context.user_data["category"] = text
-        questions = CATEGORIES[text]
-        context.user_data["questions"] = questions
-        numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
-        await query.message.reply_text(
-            f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
-            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
-            reply_markup=get_back_main_markup()
-        )
-    elif text == "عن المنصة":
-        await query.message.reply_text(
-            ABOUT_MSG,
-            reply_markup=get_about_markup()
-        )
-    else:
-        await query.message.reply_text(
-            "يرجى اختيار تصنيف صحيح.",
-            reply_markup=get_main_menu_inline_markup(CATEGORIES)
-        )
 
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -189,6 +165,9 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "اشتراك شهري":
         return await subscription_handler(update, context)
+    elif text == "العودة الى منصة محامي.كوم":
+        await update.message.reply_text("يمكنك العودة إلى منصة محامي.كوم عبر هذا الرابط:\nhttps://t.me/mohamy_law_bot")
+        return CHOOSE_CATEGORY
     elif text in CATEGORIES:
         context.user_data["category"] = text
         questions = CATEGORIES[text]
@@ -196,7 +175,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
         await update.message.reply_text(
             f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
-            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (العودة الى منصة محامي.كوم) للعودة.",
             reply_markup=get_back_main_markup()
         )
         return CHOOSE_QUESTION
@@ -209,7 +188,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(
             "يرجى اختيار تصنيف صحيح.",
-            reply_markup=get_main_menu_inline_markup(CATEGORIES))
+            reply_markup=get_main_menu_markup(CATEGORIES))
         return CHOOSE_CATEGORY
 
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -221,7 +200,7 @@ async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text(
             f"لديك اشتراك شهري فعّال بالفعل.\nعدد الأيام المتبقية: {days_left} يومًا.\n"
             "يمكنك الاستمرار في استخدام جميع ميزات المنصة.",
-            reply_markup=get_main_menu_inline_markup(CATEGORIES)
+            reply_markup=get_main_menu_markup(CATEGORIES)
         )
         return CHOOSE_CATEGORY
     await update.message.reply_text(
@@ -277,7 +256,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text(
             f"الإجابة:\n{ANSWERS.get(question, 'لا توجد إجابة مسجلة لهذا السؤال.')}\n\n"
             f"(اشتراكك الشهري فعّال، متبقٍ لك {int((user_info['sub_expiry']-int(time.time()))//(24*60*60))} يوم)",
-            reply_markup=get_main_menu_inline_markup(CATEGORIES)
+            reply_markup=get_main_menu_markup(CATEGORIES)
         )
         return CHOOSE_CATEGORY
 
@@ -307,7 +286,7 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         left = user_info['free_questions_left'] - 1
         await update.message.reply_text(
             f"الإجابة:\n{ANSWERS.get(pending_answer, 'لا توجد إجابة مسجلة لهذا السؤال.')}\n\n(تبقى لديك {left} سؤال مجاني)",
-            reply_markup=get_main_menu_inline_markup(CATEGORIES)
+            reply_markup=get_main_menu_markup(CATEGORIES)
         )
         context.user_data.pop("awaiting_free_answer", None)
         return CHOOSE_CATEGORY
@@ -318,13 +297,14 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
         await update.message.reply_text(
             f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
-            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (العودة الى منصة محامي.كوم) للعودة.",
             reply_markup=get_back_main_markup()
         )
         context.user_data.pop("awaiting_free_answer", None)
         return CHOOSE_QUESTION
-    elif update.message.text == "القائمة الرئيسية":
-        return await main_menu_handler(update, context)
+    elif update.message.text == "العودة الى منصة محامي.كوم":
+        await update.message.reply_text("يمكنك العودة إلى منصة محامي.كوم عبر هذا الرابط:\nhttps://t.me/mohamy_law_bot")
+        return CHOOSE_CATEGORY
     else:
         await update.message.reply_text("يرجى الاختيار من الأزرار المتوفرة فقط.", reply_markup=get_free_confirm_markup())
         return FREE_OR_SUB_CONFIRM
@@ -336,7 +316,7 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
     await update.message.reply_text(
         f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
-        "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+        "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (العودة الى منصة محامي.كوم) للعودة.",
         reply_markup=get_back_main_markup()
     )
     context.user_data.pop("awaiting_free_answer", None)
@@ -353,7 +333,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "✅ تم إرسال طلب اشتراكك بنجاح!\n"
                 "سيتم تفعيل الاشتراك خلال 24 ساعة بعد التحقق من التحويل.\n"
                 "يمكنك متابعة استخدام البوت الآن:",
-                reply_markup=get_main_menu_inline_markup(CATEGORIES)
+                reply_markup=get_main_menu_markup(CATEGORIES)
             )
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
@@ -371,7 +351,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "✅ تم إرسال طلبك بنجاح!\n"
                 "سيتم الرد على سؤالك خلال 24 ساعة بعد التحقق من التحويل.\n"
                 "يمكنك متابعة استخدام البوت الآن:",
-                reply_markup=get_main_menu_inline_markup(CATEGORIES)
+                reply_markup=get_main_menu_markup(CATEGORIES)
             )
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
@@ -390,7 +370,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "تم إلغاء عملية الدفع.\n"
             "يمكنك العودة للقائمة الرئيسية:",
-            reply_markup=get_main_menu_inline_markup(CATEGORIES)
+            reply_markup=get_main_menu_markup(CATEGORIES)
         )
         return CHOOSE_CATEGORY
 
