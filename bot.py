@@ -14,10 +14,10 @@ from admin_handlers import (
     admin_menu, admin_stats, admin_subs, admin_subscription_select,
     admin_subs_callback, handle_admin_callback,
     admin_manage_questions, admin_select_category,
-    admin_add_question, admin_receive_new_question,
-    admin_receive_new_answer, admin_select_question,
-    admin_edit_question, admin_receive_edited_question,
-    admin_receive_edited_answer, admin_delete_question
+    admin_select_question, admin_receive_new_question,
+    admin_receive_new_answer, admin_edit_question,
+    admin_receive_edited_question, admin_receive_edited_answer,
+    admin_delete_question
 )
 
 logging.basicConfig(
