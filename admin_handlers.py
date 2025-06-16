@@ -9,7 +9,7 @@ from keyboards import (
 )
 from users import (
     get_active_subscriptions, extend_subscription, remove_subscription,
-    get_user, set_subscription
+    get_user, set_subscription, get_connection
 )
 import questions
 import time
@@ -27,36 +27,27 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "لوحة تحكم الأدمن:\nاختر ما تريد إدارته:",
         reply_markup=get_admin_menu_markup()
     )
+    context.user_data.clear()
+    context.user_data["admin_panel"] = True
 
-# ===== إحصائيات البوت =====
-async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_panel_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_TELEGRAM_ID:
-        await update.message.reply_text("⛔ هذا الأمر للمشرفين فقط!")
         return
-    try:
-        from users import get_connection
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM users")
-        total_users = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM users WHERE sub_expiry > %s", (int(time.time()),))
-        active_subs = cur.fetchone()[0]
-        conn.close()
-        await update.message.reply_text(
-            f"📊 إحصائيات البوت:\n"
-            f"• إجمالي المستخدمين: {total_users}\n"
-            f"• المشتركين النشطين: {active_subs}\n"
-            f"• آخر تحديث: {time.strftime('%Y-%m-%d %H:%M')}"
-        )
-    except Exception as e:
-        logger.error("admin_stats error: %s", e)
-        await update.message.reply_text("حدث خطأ أثناء جلب الإحصائيات.")
+    text = update.message.text.strip()
+    if text == "إدارة المشتركين":
+        await admin_subs(update, context)
+        context.user_data.clear()
+        context.user_data["admin_manage_subs"] = True
+    elif text == "إدارة الأسئلة":
+        await admin_manage_questions(update, context)
+        context.user_data.clear()
+        context.user_data["admin_manage_questions"] = True
+    elif text == "القائمة الرئيسية":
+        context.user_data.clear()
+        await update.message.reply_text("تم الرجوع للقائمة الرئيسية.")
 
 # ===== إدارة المشتركين =====
 async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_TELEGRAM_ID:
-        await update.message.reply_text("⛔ هذا الأمر للمشرفين فقط!")
-        return
     subs = get_active_subscriptions()
     if not subs:
         await update.message.reply_text("لا يوجد اشتراكات شهرية فعالة حاليًا.")
@@ -72,8 +63,8 @@ async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
             identity = f"ID:{sub['user_id']}"
         msg += f"{idx}. {sub['full_name']} ({identity}) — {sub['days_left']} يوم متبقٍ\n"
     msg += "\nأرسل رقم المشترك للتعديل عليه."
-    await update.message.reply_text(msg)
     context.user_data["awaiting_sub_select"] = True
+    await update.message.reply_text(msg)
 
 async def admin_subscription_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_sub_select"):
@@ -171,120 +162,139 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         if user_id in pending_paid_questions:
             del pending_paid_questions[user_id]
 
+# ===== إحصائيات البوت =====
+async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        now = int(time.time())
+        cur.execute("SELECT COUNT(*) FROM users")
+        total_users = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE sub_expiry > %s", (now,))
+        active_subs = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE sub_expiry <= %s AND sub_expiry > 0", (now,))
+        expired_subs = cur.fetchone()[0]
+        conn.close()
+        await update.message.reply_text(
+            f"📊 إحصائيات البوت:\n"
+            f"• إجمالي المستخدمين: {total_users}\n"
+            f"• المشتركين النشطين: {active_subs}\n"
+            f"• المشتركين المنتهية اشتراكاتهم: {expired_subs}\n"
+            f"• آخر تحديث: {time.strftime('%Y-%m-%d %H:%M')}"
+        )
+    except Exception as e:
+        logger.error("admin_stats error: %s", e)
+        await update.message.reply_text("حدث خطأ أثناء جلب الإحصائيات.")
+
 # ===== إدارة الأسئلة =====
 async def admin_manage_questions(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_TELEGRAM_ID:
-        await update.message.reply_text("⛔ هذا الأمر للمشرفين فقط!")
-        return
     await update.message.reply_text(
         "اختر القسم:",
         reply_markup=get_categories_markup(questions.LEGAL_QUESTIONS)
     )
+    context.user_data.clear()
     context.user_data["admin_manage_questions"] = True
 
-async def admin_select_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.get("admin_manage_questions"):
-        return
-    cat = update.message.text
-    if cat not in questions.LEGAL_QUESTIONS:
-        await update.message.reply_text("يرجى اختيار قسم صحيح.")
-        return
-    context.user_data["selected_category"] = cat
-    qs = questions.LEGAL_QUESTIONS[cat]
-    await update.message.reply_text(
-        f"أسئلة قسم [{cat}]:",
-        reply_markup=get_questions_list_markup(qs)
-    )
-    await update.message.reply_text(
-        "لإضافة سؤال جديد، اضغط على (إضافة سؤال جديد)\n"
-        "لتعديل أو حذف سؤال، اضغط على نص السؤال."
-    )
+async def admin_category_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if text in questions.LEGAL_QUESTIONS:
+        context.user_data["selected_category"] = text
+        qs = questions.LEGAL_QUESTIONS[text]
+        await update.message.reply_text(
+            f"أسئلة قسم [{text}]:",
+            reply_markup=get_questions_list_markup(qs)
+        )
+        await update.message.reply_text(
+            "لإضافة سؤال جديد، اضغط على (إضافة سؤال جديد)\n"
+            "لتعديل أو حذف سؤال، اضغط على نص السؤال."
+        )
 
-async def admin_add_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_TELEGRAM_ID:
+async def admin_question_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    if context.user_data.get("awaiting_new_question") or context.user_data.get("awaiting_new_answer"):
         return
+    if text == "رجوع":
+        context.user_data.clear()
+        await admin_manage_questions(update, context)
+        return
+    elif text == "إضافة سؤال جديد":
+        await update.message.reply_text("أرسل نص السؤال الجديد:")
+        context.user_data["awaiting_new_question"] = True
+        return
+
     cat = context.user_data.get("selected_category")
-    if not cat:
-        await update.message.reply_text("يرجى اختيار القسم أولاً.")
-        return
-    await update.message.reply_text("أرسل نص السؤال الجديد:")
-    context.user_data["awaiting_new_question"] = True
+    if cat and text in [q[0] for q in questions.LEGAL_QUESTIONS[cat]]:
+        idx = [q[0] for q in questions.LEGAL_QUESTIONS[cat]].index(text)
+        context.user_data["selected_question_idx"] = idx
+        await update.message.reply_text(
+            f"اختر الإجراء للسؤال:\n{text}",
+            reply_markup=get_question_manage_markup()
+        )
 
-async def admin_receive_new_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_new_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_new_question"):
         return
-    question = update.message.text.strip()
-    context.user_data["new_question_text"] = question
+    q = update.message.text.strip()
+    context.user_data["new_question_text"] = q
     await update.message.reply_text("أرسل جواب السؤال:")
+    context.user_data["awaiting_new_question"] = False
     context.user_data["awaiting_new_answer"] = True
-    context.user_data.pop("awaiting_new_question", None)
 
-async def admin_receive_new_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_new_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_new_answer"):
         return
     cat = context.user_data.get("selected_category")
-    question = context.user_data.pop("new_question_text")
+    question = context.user_data.pop("new_question_text", None)
+    if not cat or not question:
+        await update.message.reply_text("خطأ في البيانات. يرجى إعادة المحاولة.")
+        context.user_data.clear()
+        return
     answer = update.message.text.strip()
     questions.add_question(cat, question, answer)
     await update.message.reply_text("✅ تم إضافة السؤال بنجاح.")
-    context.user_data.pop("awaiting_new_answer", None)
+    context.user_data["awaiting_new_answer"] = False
+    await admin_category_select(update, context)
 
-async def admin_select_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_manage_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
     cat = context.user_data.get("selected_category")
-    if not cat:
-        return
-    qs = questions.LEGAL_QUESTIONS[cat]
-    selected = update.message.text.strip()
-    for idx, (q, a) in enumerate(qs):
-        if q == selected:
-            context.user_data["selected_question_idx"] = idx
-            await update.message.reply_text(
-                f"اختر الإجراء للسؤال:\n{q}",
-                reply_markup=get_question_manage_markup()
-            )
-            break
+    idx = context.user_data.get("selected_question_idx")
+    if text == "تعديل السؤال":
+        qs = questions.LEGAL_QUESTIONS[cat]
+        q, a = qs[idx]
+        await update.message.reply_text(f"السؤال الحالي:\n{q}\nأرسل النص الجديد (أو أرسل نفسه لعدم التغيير):")
+        context.user_data["awaiting_edit_question"] = True
+    elif text == "حذف السؤال":
+        questions.delete_question(cat, idx)
+        await update.message.reply_text("✅ تم حذف السؤال بنجاح.")
+        context.user_data.clear()
+        await admin_category_select(update, context)
+    elif text == "رجوع":
+        context.user_data.pop("selected_question_idx", None)
+        await admin_category_select(update, context)
 
 async def admin_edit_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    idx = context.user_data.get("selected_question_idx")
-    cat = context.user_data.get("selected_category")
-    if idx is None or not cat:
-        await update.message.reply_text("حدث خطأ في التحديد.")
-        return
-    qs = questions.LEGAL_QUESTIONS[cat]
-    q, a = qs[idx]
-    await update.message.reply_text(f"السؤال الحالي:\n{q}\nأرسل النص الجديد (أو أرسل نفسه لعدم التغيير):")
-    context.user_data["awaiting_edit_question"] = True
-
-async def admin_receive_edited_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_edit_question"):
         return
-    idx = context.user_data.get("selected_question_idx")
     cat = context.user_data.get("selected_category")
+    idx = context.user_data.get("selected_question_idx")
     qs = questions.LEGAL_QUESTIONS[cat]
     new_q = update.message.text.strip()
     _, old_a = qs[idx]
     questions.edit_question(cat, idx, new_q, old_a)
     await update.message.reply_text("أرسل الجواب الجديد (أو أرسل نفسه لعدم التغيير):")
+    context.user_data["awaiting_edit_question"] = False
     context.user_data["awaiting_edit_answer"] = True
     context.user_data["edited_question_text"] = new_q
-    context.user_data.pop("awaiting_edit_question", None)
 
-async def admin_receive_edited_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_edit_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_edit_answer"):
         return
-    idx = context.user_data.get("selected_question_idx")
     cat = context.user_data.get("selected_category")
-    new_q = context.user_data.pop("edited_question_text")
+    idx = context.user_data.get("selected_question_idx")
+    new_q = context.user_data.pop("edited_question_text", None)
     new_a = update.message.text.strip()
     questions.edit_question(cat, idx, new_q, new_a)
     await update.message.reply_text("✅ تم تعديل السؤال والإجابة بنجاح.")
-    context.user_data.pop("awaiting_edit_answer", None)
-
-async def admin_delete_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    idx = context.user_data.get("selected_question_idx")
-    cat = context.user_data.get("selected_category")
-    if idx is None or not cat:
-        await update.message.reply_text("حدث خطأ في التحديد.")
-        return
-    questions.delete_question(cat, idx)
-    await update.message.reply_text("✅ تم حذف السؤال بنجاح.")
+    context.user_data["awaiting_edit_answer"] = False
+    await admin_category_select(update, context)
