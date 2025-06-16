@@ -74,12 +74,29 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     data = query.data
     sub = context.user_data["selected_sub"]
     user_id = sub["user_id"]
+    bot = update.get_bot()
     if data.startswith("extend_"):
         set_subscription(user_id, sub["username"], sub["full_name"], days= sub["days_left"] + 3)
         await query.edit_message_text("✅ تم تمديد الاشتراك 3 أيام.", protect_content=True)
+        # إشعار المستخدم بالتمديد
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text="🎁 تم تمديد اشتراكك لمدة 3 أيام إضافية. شكراً لاستخدامك منصتنا!"
+            )
+        except Exception:
+            pass
     elif data.startswith("delete_"):
         remove_subscription(user_id)
         await query.edit_message_text("❌ تم حذف الاشتراك.", protect_content=True)
+        # إشعار المستخدم بالحذف
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text="⚠️ تم إلغاء اشتراكك الشهري من قبل الإدارة. إذا كان لديك اعتراض يرجى مراسلتنا."
+            )
+        except Exception:
+            pass
     context.user_data.pop("selected_sub", None)
     context.user_data["awaiting_sub_select"] = True
 
@@ -88,8 +105,25 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     await query.answer()
     data = query.data
     user_id = int(data.split("_")[1])
+    bot = update.get_bot()
     if data.startswith("accept_"):
         set_subscription(user_id, "", "", 30)
         await query.edit_message_text(f"✅ تم تفعيل الاشتراك للمستخدم {user_id}", protect_content=True)
+        # إشعار المستخدم بالتفعيل
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text="🎉 تم تفعيل اشتراكك بنجاح لمدة 30 يومًا! يمكنك الآن استخدام جميع الأسئلة بدون قيود."
+            )
+        except Exception:
+            pass
     else:
         await query.edit_message_text(f"❌ تم رفض الطلب للمستخدم {user_id}", protect_content=True)
+        # إشعار المستخدم بالرفض
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text="⚠️ تم رفض طلبك (دفع/اشتراك). في حال وجود خطأ، يرجى التواصل مع الإدارة."
+            )
+        except Exception:
+            pass
