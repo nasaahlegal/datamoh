@@ -10,7 +10,8 @@ from handlers.admin import (
 from handlers.user import (
     start, main_menu_handler, category_handler, question_number_handler,
     confirm_free_or_sub_use_handler, back_to_questions_handler,
-    spam_handler, lawyer_platform_handler
+    lawyer_platform_handler,  # يجب أن يكون قبل spam_handler
+    spam_handler
 )
 from handlers.payment import (
     subscription_handler, subscription_confirm, payment_handler
@@ -21,9 +22,6 @@ from users import init_users_db
 def main():
     init_users_db()
     app = ApplicationBuilder().token(TOKEN).build()
-
-    # فلترة الروابط لمنع السبام مع الاحتفاظ بميزة fallback
-    app.add_handler(MessageHandler(filters.Entity("url"), spam_handler))
 
     # أوامر الأدمن
     admin_filter = filters.User(ADMIN_TELEGRAM_ID)
@@ -77,6 +75,9 @@ def main():
         allow_reentry=True
     )
     app.add_handler(conv)
+
+    # ضع spam_handler بعد الكل كي لا يعترض رسائل الأزرار
+    app.add_handler(MessageHandler(filters.Entity("url"), spam_handler))
 
     app.run_polling()
 

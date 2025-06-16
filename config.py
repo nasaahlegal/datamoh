@@ -6,13 +6,12 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 ADMIN_TELEGRAM_ID = int(os.environ.get("ADMIN_TELEGRAM_ID", 8109994800))
 ADMIN_USERNAME = "mohamycom"
 
-# تحميل الأسئلة والأجوبة من ملف JSON موحّد (يفضل ذلك)
+# تحميل الأسئلة والأجوبة من ملف JSON أو افتراضيًا
 Q_DATA = {}
 if os.path.exists("data/questions.json"):
     with open("data/questions.json", encoding="utf-8") as f:
         Q_DATA = json.load(f)
 else:
-    # نسخة افتراضية للنسخة الأولى
     Q_DATA = {
         "الأسرة": [
             {"question": "ما هي إجراءات الطلاق في العراق؟", "answer": "إجراءات الطلاق في العراق تتضمن مراجعة المحكمة الشرعية وتقديم طلب الطلاق بحضور الطرفين..."},

@@ -2,9 +2,9 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from users import set_subscription, get_user, is_subscribed
 from keyboards import (
-    get_payment_reply_markup, get_lawyer_platform_markup, get_subscription_markup
+    get_payment_reply_markup, get_lawyer_platform_markup, get_subscription_markup, get_admin_decision_markup
 )
-from config import PAY_ACCOUNT, SUBSCRIPTION_PRICE, PAY_MSG
+from config import PAY_ACCOUNT, SUBSCRIPTION_PRICE, PAY_MSG, ADMIN_TELEGRAM_ID
 from states_enum import States
 
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -57,7 +57,19 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "يمكنك متابعة استخدام البوت الآن:",
                 reply_markup=get_lawyer_platform_markup({})
             )
-            # إشعار الأدمن (يمكنك تحسينها لطلب مراجعة)
+            # إشعار الأدمن مع أزرار القبول والرفض
+            await update.get_bot().send_message(
+                chat_id=ADMIN_TELEGRAM_ID,
+                text=(
+                    f"📬 طلب اشتراك جديد:\n"
+                    f"👤 الاسم: {user.full_name}\n"
+                    f"🔗 المعرف: @{user.username or 'بدون'}\n"
+                    f"🆔 ID: {user.id}\n"
+                    f"💳 المبلغ: {SUBSCRIPTION_PRICE:,} دينار عراقي\n"
+                    f"⏳ المدة: 30 يوم"
+                ),
+                reply_markup=get_admin_decision_markup(user.id)
+            )
         else:
             pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
             await update.message.reply_text(
