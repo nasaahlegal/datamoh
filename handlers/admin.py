@@ -82,7 +82,7 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             await bot.send_message(
                 chat_id=user_id,
-                text="🎁 تم تمديد اشتراكك لمدة 3 أيام إضافية. شكراً لاستخدامك منصتنا!"
+                text="🎁 تم تمديد اشتراكك لمدة 3 أيام إضافية كهدية من الإدارة."
             )
         except Exception:
             pass
@@ -117,7 +117,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             )
         except Exception:
             pass
-    else:
+    elif data.startswith("reject_"):
         await query.edit_message_text(f"❌ تم رفض الطلب للمستخدم {user_id}", protect_content=True)
         # إشعار المستخدم بالرفض
         try:
