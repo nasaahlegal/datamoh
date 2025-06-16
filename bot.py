@@ -13,9 +13,11 @@ from handlers import (
 from admin_handlers import (
     admin_menu, admin_stats, admin_subs, admin_subscription_select,
     admin_subs_callback, handle_admin_callback,
-    admin_manage_questions, admin_panel_router, admin_category_select,
-    admin_question_router, admin_new_question, admin_new_answer,
-    admin_manage_action, admin_edit_question, admin_edit_answer
+    admin_manage_questions, admin_select_category,
+    admin_add_question, admin_receive_new_question,
+    admin_receive_new_answer, admin_select_question,
+    admin_edit_question, admin_receive_edited_question,
+    admin_receive_edited_answer, admin_delete_question
 )
 
 logging.basicConfig(
@@ -36,28 +38,29 @@ def main():
     init_users_db()
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # أوامر الأدمن
+    # أوامر الأدمن ولوحة التحكم
     app.add_handler(CommandHandler("admin", admin_menu, filters=filters.User(ADMIN_TELEGRAM_ID)))
+    app.add_handler(CommandHandler("manage_questions", admin_manage_questions, filters=filters.User(ADMIN_TELEGRAM_ID)))
     app.add_handler(CommandHandler("stats", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID)))
     app.add_handler(CommandHandler("subs", admin_subs, filters=filters.User(ADMIN_TELEGRAM_ID)))
-    app.add_handler(CommandHandler("manage_questions", admin_manage_questions, filters=filters.User(ADMIN_TELEGRAM_ID)))
-    app.add_handler(MessageHandler(filters.Regex(r"^(إدارة المشتركين|إدارة الأسئلة|القائمة الرئيسية)$") & filters.User(ADMIN_TELEGRAM_ID), admin_panel_router))
 
-    # إدارة المشتركين
+    # إدارة المشتركين (الأوامر والردود)
     app.add_handler(MessageHandler(filters.Regex("^[0-9]+$") & filters.User(ADMIN_TELEGRAM_ID), admin_subscription_select))
     app.add_handler(CallbackQueryHandler(admin_subs_callback, pattern=r"^(extend|delete)_[0-9]+|subs_back$"))
     app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
 
-    # إدارة الأسئلة ـ handlers منفصلة لكل حالة
-    app.add_handler(MessageHandler(filters.Regex(r"^(أحوال شخصية|عقارات|عمل|جنائي|مرور|أخرى)$") & filters.User(ADMIN_TELEGRAM_ID), admin_category_select))
-    app.add_handler(MessageHandler(filters.Regex(r"^(إضافة سؤال جديد|رجوع|.*)$") & filters.User(ADMIN_TELEGRAM_ID), admin_question_router))
-    app.add_handler(MessageHandler(filters.TEXT & filters.User(ADMIN_TELEGRAM_ID), admin_new_question))
-    app.add_handler(MessageHandler(filters.TEXT & filters.User(ADMIN_TELEGRAM_ID), admin_new_answer))
-    app.add_handler(MessageHandler(filters.Regex(r"^(تعديل السؤال|حذف السؤال|رجوع)$") & filters.User(ADMIN_TELEGRAM_ID), admin_manage_action))
-    app.add_handler(MessageHandler(filters.TEXT & filters.User(ADMIN_TELEGRAM_ID), admin_edit_question))
-    app.add_handler(MessageHandler(filters.TEXT & filters.User(ADMIN_TELEGRAM_ID), admin_edit_answer))
+    # إدارة الأسئلة عبر لوحة التحكم (جميع المراحل)
+    app.add_handler(MessageHandler(filters.Regex(r"^(إدارة الأسئلة)$") & filters.User(ADMIN_TELEGRAM_ID), admin_manage_questions))
+    app.add_handler(MessageHandler(filters.Regex(r"^(أحوال شخصية|عقارات|عمل|جنائي|مرور|أخرى)$") & filters.User(ADMIN_TELEGRAM_ID), admin_select_category))
+    app.add_handler(MessageHandler(filters.Regex(r"^(.*)$") & filters.User(ADMIN_TELEGRAM_ID), admin_select_question))
+    app.add_handler(MessageHandler(filters.TEXT & filters.User(ADMIN_TELEGRAM_ID), admin_receive_new_question))
+    app.add_handler(MessageHandler(filters.TEXT & filters.User(ADMIN_TELEGRAM_ID), admin_receive_new_answer))
+    app.add_handler(MessageHandler(filters.Regex(r"^(تعديل السؤال)$") & filters.User(ADMIN_TELEGRAM_ID), admin_edit_question))
+    app.add_handler(MessageHandler(filters.TEXT & filters.User(ADMIN_TELEGRAM_ID), admin_receive_edited_question))
+    app.add_handler(MessageHandler(filters.TEXT & filters.User(ADMIN_TELEGRAM_ID), admin_receive_edited_answer))
+    app.add_handler(MessageHandler(filters.Regex(r"^(حذف السؤال)$") & filters.User(ADMIN_TELEGRAM_ID), admin_delete_question))
 
-    # ConversationHandler الأساسي للمستخدم
+    # ConversationHandler الأساسي للمستخدمين
     conv = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
