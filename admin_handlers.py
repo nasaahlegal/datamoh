@@ -195,7 +195,10 @@ async def admin_manage_questions(update: Update, context: ContextTypes.DEFAULT_T
     context.user_data.clear()
     context.user_data["admin_manage_questions"] = True
 
+# اختيار القسم
 async def admin_category_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.user_data.get("admin_manage_questions"):
+        return
     text = update.message.text.strip()
     if text in questions.LEGAL_QUESTIONS:
         context.user_data["selected_category"] = text
@@ -208,11 +211,14 @@ async def admin_category_select(update: Update, context: ContextTypes.DEFAULT_TY
             "لإضافة سؤال جديد، اضغط على (إضافة سؤال جديد)\n"
             "لتعديل أو حذف سؤال، اضغط على نص السؤال."
         )
+        context.user_data["in_questions_list"] = True
 
+# الضغط على سؤال أو زر إضافة سؤال جديد أو "رجوع"
 async def admin_question_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
-    if context.user_data.get("awaiting_new_question") or context.user_data.get("awaiting_new_answer"):
+    if not context.user_data.get("in_questions_list"):
         return
+    text = update.message.text.strip()
+    cat = context.user_data.get("selected_category")
     if text == "رجوع":
         context.user_data.clear()
         await admin_manage_questions(update, context)
@@ -220,9 +226,9 @@ async def admin_question_router(update: Update, context: ContextTypes.DEFAULT_TY
     elif text == "إضافة سؤال جديد":
         await update.message.reply_text("أرسل نص السؤال الجديد:")
         context.user_data["awaiting_new_question"] = True
+        context.user_data["in_questions_list"] = False
         return
-
-    cat = context.user_data.get("selected_category")
+    # إذا ضغط على سؤال
     if cat and text in [q[0] for q in questions.LEGAL_QUESTIONS[cat]]:
         idx = [q[0] for q in questions.LEGAL_QUESTIONS[cat]].index(text)
         context.user_data["selected_question_idx"] = idx
@@ -230,7 +236,10 @@ async def admin_question_router(update: Update, context: ContextTypes.DEFAULT_TY
             f"اختر الإجراء للسؤال:\n{text}",
             reply_markup=get_question_manage_markup()
         )
+        context.user_data["in_questions_list"] = False
+        context.user_data["in_manage_action"] = True
 
+# استقبال نص السؤال الجديد
 async def admin_new_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_new_question"):
         return
@@ -240,6 +249,7 @@ async def admin_new_question(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data["awaiting_new_question"] = False
     context.user_data["awaiting_new_answer"] = True
 
+# استقبال الجواب الجديد
 async def admin_new_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_new_answer"):
         return
@@ -252,10 +262,13 @@ async def admin_new_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     answer = update.message.text.strip()
     questions.add_question(cat, question, answer)
     await update.message.reply_text("✅ تم إضافة السؤال بنجاح.")
-    context.user_data["awaiting_new_answer"] = False
+    context.user_data.clear()
     await admin_category_select(update, context)
 
+# التحكم في سؤال: تعديل/حذف/رجوع
 async def admin_manage_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.user_data.get("in_manage_action"):
+        return
     text = update.message.text.strip()
     cat = context.user_data.get("selected_category")
     idx = context.user_data.get("selected_question_idx")
@@ -264,15 +277,17 @@ async def admin_manage_action(update: Update, context: ContextTypes.DEFAULT_TYPE
         q, a = qs[idx]
         await update.message.reply_text(f"السؤال الحالي:\n{q}\nأرسل النص الجديد (أو أرسل نفسه لعدم التغيير):")
         context.user_data["awaiting_edit_question"] = True
+        context.user_data["in_manage_action"] = False
     elif text == "حذف السؤال":
         questions.delete_question(cat, idx)
         await update.message.reply_text("✅ تم حذف السؤال بنجاح.")
         context.user_data.clear()
         await admin_category_select(update, context)
     elif text == "رجوع":
-        context.user_data.pop("selected_question_idx", None)
+        context.user_data.clear()
         await admin_category_select(update, context)
 
+# استقبال نص التعديل
 async def admin_edit_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_edit_question"):
         return
@@ -287,6 +302,7 @@ async def admin_edit_question(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data["awaiting_edit_answer"] = True
     context.user_data["edited_question_text"] = new_q
 
+# استقبال نص الجواب المعدل
 async def admin_edit_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_edit_answer"):
         return
@@ -296,5 +312,5 @@ async def admin_edit_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_a = update.message.text.strip()
     questions.edit_question(cat, idx, new_q, new_a)
     await update.message.reply_text("✅ تم تعديل السؤال والإجابة بنجاح.")
-    context.user_data["awaiting_edit_answer"] = False
+    context.user_data.clear()
     await admin_category_select(update, context)
