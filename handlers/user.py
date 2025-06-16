@@ -6,7 +6,8 @@ from config import (
 )
 from keyboards import (
     get_lawyer_platform_markup, get_back_main_markup,
-    get_free_confirm_markup, get_payment_reply_markup, get_about_markup
+    get_free_confirm_markup, get_payment_reply_markup, get_about_markup,
+    get_pay_confirm_markup
 )
 from users import (
     create_or_get_user, get_user,
@@ -124,14 +125,31 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         context.user_data["awaiting_free_answer"] = True
         return States.FREE_OR_SUB_CONFIRM.value
 
-    # *** هنا استخدم رسالة الدفع المفصلة من config.py ***
+    # يطلب موافقة المستخدم أولاً على الدفع
     await update.message.reply_text(
-        SINGLE_PAY_MSG,
-        reply_markup=get_payment_reply_markup(),
+        f"طريقة الدفع: عبر تطبيق كي المدعوم من قبل مصرف الرافدين.\n"
+        f"المبلغ: {QUESTION_PRICE:,} دينار عراقي.\n"
+        "هل تقبل الدفع للإجابة على هذا السؤال؟",
+        reply_markup=get_pay_confirm_markup(),
         protect_content=True
     )
-    context.user_data["payment_type"] = "question"
-    return States.PAYMENT.value
+    context.user_data["awaiting_pay_confirm"] = True
+    return "PAY_CONFIRM"
+
+async def pay_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if text == "نعم" and context.user_data.get("awaiting_pay_confirm"):
+        await update.message.reply_text(
+            SINGLE_PAY_MSG,
+            reply_markup=get_payment_reply_markup(),
+            protect_content=True
+        )
+        context.user_data["payment_type"] = "question"
+        context.user_data.pop("awaiting_pay_confirm", None)
+        return States.PAYMENT.value
+    elif text in ["لا", "رجوع"]:
+        context.user_data.pop("awaiting_pay_confirm", None)
+        return await main_menu_handler(update, context)
 
 async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user

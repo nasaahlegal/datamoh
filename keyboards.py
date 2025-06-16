@@ -15,7 +15,6 @@ def get_lawyer_platform_markup(categories):
     markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
     markup_arr.append(["اشتراك شهري", "عن المنصة"])
     markup_arr.append(["العودة إلى منصة محامي.كوم", "القائمة الرئيسية"])
-    # أضف زر القائمة الرئيسية بجانب زر "العودة إلى منصة محامي.كوم"
     return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
 
 def get_back_main_markup():
@@ -32,6 +31,9 @@ def get_free_confirm_markup():
 
 def get_subscription_markup():
     return ReplyKeyboardMarkup([["موافق"], ["رجوع"]], resize_keyboard=True)
+
+def get_pay_confirm_markup():
+    return ReplyKeyboardMarkup([["نعم"], ["لا", "رجوع"]], resize_keyboard=True)
 
 def get_admin_decision_markup(user_id):
     return InlineKeyboardMarkup([

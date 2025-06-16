@@ -10,8 +10,7 @@ from handlers.admin import (
 from handlers.user import (
     start, main_menu_handler, category_handler, question_number_handler,
     confirm_free_or_sub_use_handler, back_to_questions_handler,
-    lawyer_platform_handler,  # يجب أن يكون قبل spam_handler
-    spam_handler
+    lawyer_platform_handler, spam_handler, pay_confirm_handler
 )
 from handlers.payment import (
     subscription_handler, subscription_confirm, payment_handler
@@ -53,6 +52,9 @@ def main():
             States.QUESTION.value: [
                 MessageHandler(filters.Regex("^[0-9]+$"), question_number_handler),
                 MessageHandler(filters.Regex("^(رجوع|القائمة الرئيسية)$"), main_menu_handler),
+            ],
+            "PAY_CONFIRM": [
+                MessageHandler(filters.Regex("^(نعم|لا|رجوع)$"), pay_confirm_handler),
             ],
             States.FREE_OR_SUB_CONFIRM.value: [
                 MessageHandler(filters.Regex("^(نعم)$"), confirm_free_or_sub_use_handler),

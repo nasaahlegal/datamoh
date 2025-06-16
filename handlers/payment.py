@@ -70,7 +70,6 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=get_admin_decision_markup(user.id)
             )
         else:
-            # إشعار الأدمن عند السؤال الفردي المدفوع
             pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
             await update.message.reply_text(
                 "✅ تم إرسال طلبك بنجاح!\n"
@@ -78,6 +77,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "يمكنك متابعة استخدام البوت الآن:",
                 reply_markup=get_lawyer_platform_markup(Q_DATA)
             )
+            # إشعار الأدمن مع أزرار قبول/رفض
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
                 text=(
@@ -87,7 +87,8 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"🆔 ID: {user.id}\n"
                     f"💬 السؤال: {pending_answer}\n"
                     f"💳 المبلغ: 5,000 دينار عراقي"
-                )
+                ),
+                reply_markup=get_admin_decision_markup(user.id)
             )
         context.user_data.pop("pending_answer", None)
         context.user_data.pop("pending_category", None)
