@@ -74,7 +74,7 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     data = query.data
     sub = context.user_data["selected_sub"]
     user_id = sub["user_id"]
-    bot = update.get_bot()
+    bot = context.bot  # استخدم كائن البوت الصحيح دائمًا هنا
     if data.startswith("extend_"):
         set_subscription(user_id, sub["username"], sub["full_name"], days= sub["days_left"] + 3)
         await query.edit_message_text("✅ تم تمديد الاشتراك 3 أيام.", protect_content=True)
@@ -84,8 +84,8 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 chat_id=user_id,
                 text="🎁 تم تمديد اشتراكك لمدة 3 أيام إضافية كهدية من الإدارة."
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"خطأ في إرسال إشعار التمديد للمستخدم {user_id}: {e}")
     elif data.startswith("delete_"):
         remove_subscription(user_id)
         await query.edit_message_text("❌ تم حذف الاشتراك.", protect_content=True)
@@ -95,8 +95,8 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
                 chat_id=user_id,
                 text="⚠️ تم إلغاء اشتراكك الشهري من قبل الإدارة. إذا كان لديك اعتراض يرجى مراسلتنا."
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"خطأ في إرسال إشعار الحذف للمستخدم {user_id}: {e}")
     context.user_data.pop("selected_sub", None)
     context.user_data["awaiting_sub_select"] = True
 
@@ -105,7 +105,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     await query.answer()
     data = query.data
     user_id = int(data.split("_")[1])
-    bot = update.get_bot()
+    bot = context.bot  # استخدم كائن البوت الصحيح دائمًا هنا
     if data.startswith("accept_"):
         set_subscription(user_id, "", "", 30)
         await query.edit_message_text(f"✅ تم تفعيل الاشتراك للمستخدم {user_id}", protect_content=True)
@@ -115,8 +115,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 chat_id=user_id,
                 text="🎉 تم تفعيل اشتراكك بنجاح لمدة 30 يومًا! يمكنك الآن استخدام جميع الأسئلة بدون قيود."
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"خطأ في إرسال إشعار التفعيل للمستخدم {user_id}: {e}")
     elif data.startswith("reject_"):
         await query.edit_message_text(f"❌ تم رفض الطلب للمستخدم {user_id}", protect_content=True)
         # إشعار المستخدم بالرفض
@@ -125,5 +125,5 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 chat_id=user_id,
                 text="⚠️ تم رفض طلبك (دفع/اشتراك). في حال وجود خطأ، يرجى التواصل مع الإدارة."
             )
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"خطأ في إرسال إشعار الرفض للمستخدم {user_id}: {e}")
