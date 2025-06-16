@@ -4,14 +4,13 @@ from users import set_subscription, get_user, is_subscribed
 from keyboards import (
     get_payment_reply_markup, get_lawyer_platform_markup, get_subscription_markup, get_admin_decision_markup
 )
-from config import PAY_ACCOUNT, SUBSCRIPTION_PRICE, PAY_MSG, ADMIN_TELEGRAM_ID
+from config import PAY_ACCOUNT, SUBSCRIPTION_PRICE, PAY_MSG, SINGLE_PAY_MSG, ADMIN_TELEGRAM_ID, Q_DATA
 from states_enum import States
 
 async def subscription_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_info = get_user(user.id)
     if is_subscribed(user.id):
-        from config import Q_DATA
         now = int(__import__('time').time())
         days_left = int((user_info["sub_expiry"] - now) // (24*60*60))
         await update.message.reply_text(
@@ -55,7 +54,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "✅ تم إرسال طلب اشتراكك بنجاح!\n"
                 "سيتم تفعيل الاشتراك خلال 24 ساعة بعد التحقق من التحويل.\n"
                 "يمكنك متابعة استخدام البوت الآن:",
-                reply_markup=get_lawyer_platform_markup({})
+                reply_markup=get_lawyer_platform_markup(Q_DATA)
             )
             # إشعار الأدمن مع أزرار القبول والرفض
             await update.get_bot().send_message(
@@ -71,12 +70,24 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=get_admin_decision_markup(user.id)
             )
         else:
+            # إشعار الأدمن عند السؤال الفردي المدفوع
             pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
             await update.message.reply_text(
                 "✅ تم إرسال طلبك بنجاح!\n"
                 "سيتم الرد على سؤالك خلال 24 ساعة بعد التحقق من التحويل.\n"
                 "يمكنك متابعة استخدام البوت الآن:",
-                reply_markup=get_lawyer_platform_markup({})
+                reply_markup=get_lawyer_platform_markup(Q_DATA)
+            )
+            await update.get_bot().send_message(
+                chat_id=ADMIN_TELEGRAM_ID,
+                text=(
+                    f"📬 طلب دفع جديد لسؤال واحد:\n"
+                    f"👤 الاسم: {user.full_name}\n"
+                    f"🔗 المعرف: @{user.username or 'بدون'}\n"
+                    f"🆔 ID: {user.id}\n"
+                    f"💬 السؤال: {pending_answer}\n"
+                    f"💳 المبلغ: 5,000 دينار عراقي"
+                )
             )
         context.user_data.pop("pending_answer", None)
         context.user_data.pop("pending_category", None)
@@ -88,7 +99,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "تم إلغاء عملية الدفع.\n"
             "يمكنك العودة للقائمة الرئيسية:",
-            reply_markup=get_lawyer_platform_markup({})
+            reply_markup=get_lawyer_platform_markup(Q_DATA)
         )
         return States.CATEGORY.value
 

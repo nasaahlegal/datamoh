@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from config import (
     Q_DATA, QUESTION_PRICE, FREE_QUESTIONS_LIMIT,
-    ABOUT_MSG, WELCOME_MSG
+    ABOUT_MSG, WELCOME_MSG, SINGLE_PAY_MSG, ADMIN_TELEGRAM_ID
 )
 from keyboards import (
     get_lawyer_platform_markup, get_back_main_markup,
@@ -124,9 +124,9 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         context.user_data["awaiting_free_answer"] = True
         return States.FREE_OR_SUB_CONFIRM.value
 
+    # *** هنا استخدم رسالة الدفع المفصلة من config.py ***
     await update.message.reply_text(
-        f"سعر الإجابة على كل سؤال: {QUESTION_PRICE:,} دينار.\n"
-        "يرجى التحويل إلى الحساب ثم اضغط (تم التحويل).",
+        SINGLE_PAY_MSG,
         reply_markup=get_payment_reply_markup(),
         protect_content=True
     )

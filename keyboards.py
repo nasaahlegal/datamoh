@@ -14,7 +14,8 @@ def get_lawyer_platform_markup(categories):
     keys = list(categories.keys())
     markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
     markup_arr.append(["اشتراك شهري", "عن المنصة"])
-    markup_arr.append(["العودة إلى منصة محامي.كوم"])
+    markup_arr.append(["العودة إلى منصة محامي.كوم", "القائمة الرئيسية"])
+    # أضف زر القائمة الرئيسية بجانب زر "العودة إلى منصة محامي.كوم"
     return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
 
 def get_back_main_markup():
