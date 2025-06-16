@@ -1,4 +1,8 @@
-from aiogram.dispatcher.filters.state import State, StatesGroup
+from enum import Enum
 
-class QuestionStates(StatesGroup):
-    waiting_for_question = State()
+class States(Enum):
+    CATEGORY = 1
+    QUESTION = 2
+    FREE_OR_SUB_CONFIRM = 3
+    PAYMENT = 4
+    SUBSCRIBE = 5
