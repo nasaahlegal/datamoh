@@ -41,8 +41,6 @@ def main():
     app.add_handler(CommandHandler("stats", admin_stats, filters=filters.User(ADMIN_TELEGRAM_ID)))
     app.add_handler(CommandHandler("subs", admin_subs, filters=filters.User(ADMIN_TELEGRAM_ID)))
     app.add_handler(CommandHandler("manage_questions", admin_manage_questions, filters=filters.User(ADMIN_TELEGRAM_ID)))
-
-    # أزرار لوحة الأدمن
     app.add_handler(MessageHandler(filters.Regex(r"^(إدارة المشتركين|إدارة الأسئلة|القائمة الرئيسية)$") & filters.User(ADMIN_TELEGRAM_ID), admin_panel_router))
 
     # إدارة المشتركين
@@ -50,7 +48,7 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_subs_callback, pattern=r"^(extend|delete)_[0-9]+|subs_back$"))
     app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$"))
 
-    # إدارة الأسئلة
+    # إدارة الأسئلة ـ handlers منفصلة لكل حالة
     app.add_handler(MessageHandler(filters.Regex(r"^(أحوال شخصية|عقارات|عمل|جنائي|مرور|أخرى)$") & filters.User(ADMIN_TELEGRAM_ID), admin_category_select))
     app.add_handler(MessageHandler(filters.Regex(r"^(إضافة سؤال جديد|رجوع|.*)$") & filters.User(ADMIN_TELEGRAM_ID), admin_question_router))
     app.add_handler(MessageHandler(filters.TEXT & filters.User(ADMIN_TELEGRAM_ID), admin_new_question))
