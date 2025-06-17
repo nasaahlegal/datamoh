@@ -22,18 +22,16 @@ def main():
     init_users_db()
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # أوامر الأدمن
-    admin_filter = filters.User(ADMIN_TELEGRAM_ID)
-    app.add_handler(CommandHandler("admin", admin_stats, filters=admin_filter))
-    app.add_handler(CommandHandler("subs", admin_subs, filters=admin_filter))
-    app.add_handler(CommandHandler("report", report_subscriptions, filters=admin_filter))
+    # أوامر الأدمن (بدون فلتر صلاحيات، الحماية تتم في الديكوريتر)
+    app.add_handler(CommandHandler("admin", admin_stats))
+    app.add_handler(CommandHandler("subs", admin_subs))
+    app.add_handler(CommandHandler("report", report_subscriptions))
     app.add_handler(
-        MessageHandler(filters.Regex("^[0-9]+$") & admin_filter, admin_subscription_select)
+        MessageHandler(filters.Regex("^[0-9]+$"), admin_subscription_select)
     )
     app.add_handler(
         CallbackQueryHandler(admin_subs_callback, pattern=r"^(extend|delete)_[0-9]+|subs_back$")
     )
-    # هنا التعديل المهم: قبول جميع صيغ أزرار القبول/الرفض (اشتراك أو سؤال)
     app.add_handler(
         CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_(sub|question)_\d+$")
     )

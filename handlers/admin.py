@@ -108,7 +108,7 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             await bot.send_message(
                 chat_id=user_id,
-                text="⚠️ تم إلغاء اشتراكك الشهري من قبل الإدارة. إذا كان لديك اعتراض يرجى مراسلتنا."
+                text=⚠️ تم إلغاء اشتراكك الشهري من قبل الإدارة. إذا كان لديك اعتراض يرجى مراسلتنا."
             )
         except Exception as e:
             print(f"خطأ في إرسال إشعار الحذف للمستخدم {user_id}: {e}")

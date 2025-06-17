@@ -2,7 +2,6 @@ from config import ADMIN_TELEGRAM_ID
 
 def is_admin_only(func):
     async def wrapper(update, context, *args, **kwargs):
-        # Detect if the update is message or callback_query
         user_id = None
         if getattr(update, "effective_user", None):
             user_id = update.effective_user.id
