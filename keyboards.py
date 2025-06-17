@@ -53,6 +53,6 @@ def get_sub_admin_options_markup(user_id):
             InlineKeyboardButton("❌ حذف الاشتراك", callback_data=f"delete_{user_id}")
         ],
         [
-            InlineKeyboardButton(⬅️ رجوع", callback_data="subs_back")
+           InlineKeyboardButton("⬅️ رجوع", callback_data="subs_back")
         ]
     ])
