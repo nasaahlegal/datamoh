@@ -6,6 +6,19 @@ from config import DATABASE_URL, FREE_QUESTIONS_LIMIT
 def get_connection():
     return psycopg2.connect(DATABASE_URL, sslmode="require")
 
+def init_paid_questions_db():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS paid_questions (
+            user_id BIGINT PRIMARY KEY,
+            question TEXT,
+            created_at BIGINT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
 def init_users_db():
     conn = get_connection()
     cur = conn.cursor()
@@ -21,6 +34,8 @@ def init_users_db():
     """)
     conn.commit()
     conn.close()
+    # تهيئة جدول الأسئلة المدفوعة
+    init_paid_questions_db()
 
 def get_user(user_id):
     conn = get_connection()
@@ -115,5 +130,35 @@ def remove_subscription(user_id):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("UPDATE users SET sub_expiry=0 WHERE user_id=%s", (user_id,))
+    conn.commit()
+    conn.close()
+
+# --- إدارة الأسئلة المدفوعة ---
+def save_paid_question(user_id, question):
+    now = int(time.time())
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO paid_questions (user_id, question, created_at) VALUES (%s, %s, %s) "
+        "ON CONFLICT (user_id) DO UPDATE SET question=%s, created_at=%s",
+        (user_id, question, now, question, now)
+    )
+    conn.commit()
+    conn.close()
+
+def get_paid_question(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT question FROM paid_questions WHERE user_id=%s", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    if row:
+        return row[0]
+    return None
+
+def delete_paid_question(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM paid_questions WHERE user_id=%s", (user_id,))
     conn.commit()
     conn.close()

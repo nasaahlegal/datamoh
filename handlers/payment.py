@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from users import set_subscription, get_user, is_subscribed
+from users import set_subscription, get_user, is_subscribed, save_paid_question
 from keyboards import (
     get_payment_reply_markup, get_lawyer_platform_markup, get_subscription_markup, get_admin_decision_markup
 )
@@ -71,6 +71,8 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
+            # --- حفظ السؤال المدفوع في قاعدة البيانات ---
+            save_paid_question(user.id, pending_answer)
             await update.message.reply_text(
                 "✅ تم إرسال طلبك بنجاح!\n"
                 "سيتم الرد على سؤالك خلال 24 ساعة بعد التحقق من التحويل.\n"

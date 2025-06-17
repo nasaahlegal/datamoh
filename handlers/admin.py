@@ -1,10 +1,18 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from users import get_active_subscriptions, remove_subscription, set_subscription
+from users import get_active_subscriptions, remove_subscription, set_subscription, get_paid_question, delete_paid_question
 from keyboards import get_sub_admin_options_markup
+from config import Q_DATA
 import time
 
 admin_active_subs_cache = {}
+
+def get_answer(question_text):
+    for cat, items in Q_DATA.items():
+        for entry in items:
+            if entry["question"] == question_text:
+                return entry["answer"]
+    return "❓ لا توجد إجابة مسجلة لهذا السؤال."
 
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     subs = get_active_subscriptions()
@@ -78,7 +86,6 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     if data.startswith("extend_"):
         set_subscription(user_id, sub["username"], sub["full_name"], days= sub["days_left"] + 3)
         await query.edit_message_text("✅ تم تمديد الاشتراك 3 أيام.")
-        # إشعار المستخدم بالتمديد
         try:
             await bot.send_message(
                 chat_id=user_id,
@@ -89,7 +96,6 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     elif data.startswith("delete_"):
         remove_subscription(user_id)
         await query.edit_message_text("❌ تم حذف الاشتراك.")
-        # إشعار المستخدم بالحذف
         try:
             await bot.send_message(
                 chat_id=user_id,
@@ -106,7 +112,6 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     data = query.data
     bot = context.bot
 
-    # pattern: (accept|reject)_(sub|question)_user_id
     if data.startswith("accept_sub_"):
         user_id = int(data.split("_")[2])
         set_subscription(user_id, "", "", 30)
@@ -130,14 +135,20 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             print(f"خطأ في إرسال إشعار الرفض للمستخدم {user_id}: {e}")
     elif data.startswith("accept_question_"):
         user_id = int(data.split("_")[2])
-        await query.edit_message_text(f"✅ تم قبول دفع المستخدم {user_id} لسؤال واحد.")
-        try:
+        question = get_paid_question(user_id)
+        if question:
+            answer = get_answer(question)
             await bot.send_message(
                 chat_id=user_id,
-                text="✅ تم تأكيد دفعك وسيتم الرد عليك قريبًا على سؤالك."
+                text=f"سؤالك:\n{question}\n\nالإجابة:\n{answer}"
             )
-        except Exception as e:
-            print(f"خطأ في إشعار المستخدم للسؤال المدفوع {user_id}: {e}")
+            delete_paid_question(user_id)
+        else:
+            await bot.send_message(
+                chat_id=user_id,
+                text="✅ تم تأكيد دفعك، ولكن لم نعثر على سؤالك. يرجى مراسلة الإدارة."
+            )
+        await query.edit_message_text(f"✅ تم قبول دفع المستخدم {user_id} لسؤال واحد.")
     elif data.startswith("reject_question_"):
         user_id = int(data.split("_")[2])
         await query.edit_message_text(f"❌ تم رفض دفع المستخدم {user_id} لسؤال واحد.")
