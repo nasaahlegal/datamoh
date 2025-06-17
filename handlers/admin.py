@@ -9,6 +9,10 @@ from config import Q_DATA
 from utils.admin_guard import is_admin_only
 import time
 
+# استيراد الديكوريتر ودالة قراءة السجل
+from admin_log import log_admin_action, get_admin_logs
+from telegram.constants import ParseMode
+
 admin_active_subs_cache = {}
 
 def get_answer(question_text):
@@ -19,6 +23,7 @@ def get_answer(question_text):
     return "❓ لا توجد إجابة مسجلة لهذا السؤال."
 
 @is_admin_only
+@log_admin_action("admin_stats")
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     subs = get_active_subscriptions()
     await update.message.reply_text(
@@ -28,6 +33,7 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 @is_admin_only
+@log_admin_action("report_subscriptions")
 async def report_subscriptions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     subs = get_active_subscriptions()
     await update.message.reply_text(
@@ -39,6 +45,7 @@ async def report_subscriptions(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 @is_admin_only
+@log_admin_action("admin_subs")
 async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     subs = get_active_subscriptions()
     if not subs:
@@ -54,6 +61,7 @@ async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["awaiting_sub_select"] = True
 
 @is_admin_only
+@log_admin_action("admin_subscription_select")
 async def admin_subscription_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_sub_select"):
         return
@@ -82,6 +90,7 @@ async def admin_subscription_select(update: Update, context: ContextTypes.DEFAUL
     context.user_data["awaiting_action"] = True
 
 @is_admin_only
+@log_admin_action("subscription_admin_action")
 async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -116,6 +125,7 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data["awaiting_sub_select"] = True
 
 @is_admin_only
+@log_admin_action("subscription_handle_callback")
 async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -169,3 +179,24 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             )
         except Exception as e:
             print(f"خطأ في إرسال إشعار الرفض للسؤال المدفوع {user_id}: {e}")
+
+# --- أمر عرض السجل الإداري (آخر 20 حدث) ---
+@is_admin_only
+async def show_admin_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logs = get_admin_logs()
+    # عرض آخر 20 حدث
+    if not logs:
+        text = "لا يوجد أحداث إدارية مسجلة."
+    else:
+        last_logs = logs[-20:]
+        text = ""
+        for log in last_logs:
+            text += (
+                f"🕒 {log['timestamp']}\n"
+                f"- الإجراء: {log['action']}\n"
+                f"- الأدمن: {log['admin_id']}\n"
+                f"- المستخدم: {log['user_id']}\n"
+                f"- تفاصيل: {log['details']}\n"
+                "----------------------\n"
+            )
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML, protect_content=True)

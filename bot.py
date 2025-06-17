@@ -5,7 +5,8 @@ from telegram.ext import (
 from config import TOKEN, ADMIN_TELEGRAM_ID, Q_DATA
 from handlers.admin import (
     admin_stats, admin_subs, report_subscriptions,
-    admin_subscription_select, admin_subs_callback, handle_admin_callback
+    admin_subscription_select, admin_subs_callback, handle_admin_callback,
+    show_admin_log   # تمت إضافة هذا السطر لاستيراد أمر عرض السجل الإداري
 )
 from handlers.user import (
     start, main_menu_handler, category_handler, question_number_handler,
@@ -26,6 +27,7 @@ def main():
     app.add_handler(CommandHandler("admin", admin_stats))
     app.add_handler(CommandHandler("subs", admin_subs))
     app.add_handler(CommandHandler("report", report_subscriptions))
+    app.add_handler(CommandHandler("show_admin_log", show_admin_log))  # تمت إضافة هذا السطر
     app.add_handler(
         MessageHandler(filters.Regex("^[0-9]+$"), admin_subscription_select)
     )
