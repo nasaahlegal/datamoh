@@ -106,12 +106,11 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     data = query.data
     bot = context.bot
 
-    # دعم نوعين: accept_sub_ / accept_question_ وكذلك reject
+    # pattern: (accept|reject)_(sub|question)_user_id
     if data.startswith("accept_sub_"):
         user_id = int(data.split("_")[2])
         set_subscription(user_id, "", "", 30)
         await query.edit_message_text(f"✅ تم تفعيل الاشتراك للمستخدم {user_id}")
-        # إشعار المستخدم بالتفعيل
         try:
             await bot.send_message(
                 chat_id=user_id,

@@ -33,8 +33,9 @@ def main():
     app.add_handler(
         CallbackQueryHandler(admin_subs_callback, pattern=r"^(extend|delete)_[0-9]+|subs_back$")
     )
+    # هنا التعديل المهم: قبول جميع صيغ أزرار القبول/الرفض (اشتراك أو سؤال)
     app.add_handler(
-        CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_\d+$")
+        CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_(sub|question)_\d+$")
     )
 
     # ConversationHandler للمستخدمين
