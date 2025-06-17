@@ -1,8 +1,12 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from users import get_active_subscriptions, remove_subscription, set_subscription, get_paid_question, delete_paid_question
+from users import (
+    get_active_subscriptions, remove_subscription, set_subscription,
+    get_paid_question, delete_paid_question
+)
 from keyboards import get_sub_admin_options_markup
 from config import Q_DATA
+from utils.admin_guard import is_admin_only
 import time
 
 admin_active_subs_cache = {}
@@ -14,6 +18,7 @@ def get_answer(question_text):
                 return entry["answer"]
     return "❓ لا توجد إجابة مسجلة لهذا السؤال."
 
+@is_admin_only
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     subs = get_active_subscriptions()
     await update.message.reply_text(
@@ -22,6 +27,7 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         protect_content=True
     )
 
+@is_admin_only
 async def report_subscriptions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     subs = get_active_subscriptions()
     await update.message.reply_text(
@@ -32,6 +38,7 @@ async def report_subscriptions(update: Update, context: ContextTypes.DEFAULT_TYP
         protect_content=True
     )
 
+@is_admin_only
 async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     subs = get_active_subscriptions()
     if not subs:
@@ -46,6 +53,7 @@ async def admin_subs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, protect_content=True)
     context.user_data["awaiting_sub_select"] = True
 
+@is_admin_only
 async def admin_subscription_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_sub_select"):
         return
@@ -73,6 +81,7 @@ async def admin_subscription_select(update: Update, context: ContextTypes.DEFAUL
     context.user_data["awaiting_sub_select"] = False
     context.user_data["awaiting_action"] = True
 
+@is_admin_only
 async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -106,6 +115,7 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data.pop("selected_sub", None)
     context.user_data["awaiting_sub_select"] = True
 
+@is_admin_only
 async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
