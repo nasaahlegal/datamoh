@@ -35,10 +35,15 @@ def get_subscription_markup():
 def get_pay_confirm_markup():
     return ReplyKeyboardMarkup([["نعم"], ["لا", "رجوع"]], resize_keyboard=True)
 
-def get_admin_decision_markup(user_id):
+def get_admin_decision_markup(user_id, req_type="sub"):
+    """
+    req_type: "sub" للاشتراك الشهري، "question" لسؤال مدفوع
+    """
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ قبول", callback_data=f"accept_{user_id}"),
-         InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user_id}")]
+        [
+            InlineKeyboardButton("✅ قبول", callback_data=f"accept_{req_type}_{user_id}"),
+            InlineKeyboardButton("❌ رفض", callback_data=f"reject_{req_type}_{user_id}")
+        ]
     ])
 
 def get_sub_admin_options_markup(user_id):
@@ -48,6 +53,6 @@ def get_sub_admin_options_markup(user_id):
             InlineKeyboardButton("❌ حذف الاشتراك", callback_data=f"delete_{user_id}")
         ],
         [
-            InlineKeyboardButton("⬅️ رجوع", callback_data="subs_back")
+            InlineKeyboardButton(⬅️ رجوع", callback_data="subs_back")
         ]
     ])

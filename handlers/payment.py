@@ -56,7 +56,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "يمكنك متابعة استخدام البوت الآن:",
                 reply_markup=get_lawyer_platform_markup(Q_DATA)
             )
-            # إشعار الأدمن مع أزرار القبول والرفض
+            # إشعار الأدمن مع أزرار القبول والرفض للاشتراك الشهري
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
                 text=(
@@ -67,7 +67,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"💳 المبلغ: {SUBSCRIPTION_PRICE:,} دينار عراقي\n"
                     f"⏳ المدة: 30 يوم"
                 ),
-                reply_markup=get_admin_decision_markup(user.id)
+                reply_markup=get_admin_decision_markup(user.id, req_type="sub")
             )
         else:
             pending_answer = context.user_data.get("pending_answer", "سؤال غير محدد")
@@ -77,7 +77,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "يمكنك متابعة استخدام البوت الآن:",
                 reply_markup=get_lawyer_platform_markup(Q_DATA)
             )
-            # إشعار الأدمن مع أزرار قبول/رفض
+            # إشعار الأدمن مع أزرار قبول/رفض لسؤال واحد
             await update.get_bot().send_message(
                 chat_id=ADMIN_TELEGRAM_ID,
                 text=(
@@ -88,7 +88,7 @@ async def payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"💬 السؤال: {pending_answer}\n"
                     f"💳 المبلغ: 5,000 دينار عراقي"
                 ),
-                reply_markup=get_admin_decision_markup(user.id)
+                reply_markup=get_admin_decision_markup(user.id, req_type="question")
             )
         context.user_data.pop("pending_answer", None)
         context.user_data.pop("pending_category", None)

@@ -104,9 +104,11 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     await query.answer()
     data = query.data
-    user_id = int(data.split("_")[1])
     bot = context.bot
-    if data.startswith("accept_"):
+
+    # دعم نوعين: accept_sub_ / accept_question_ وكذلك reject
+    if data.startswith("accept_sub_"):
+        user_id = int(data.split("_")[2])
         set_subscription(user_id, "", "", 30)
         await query.edit_message_text(f"✅ تم تفعيل الاشتراك للمستخدم {user_id}")
         # إشعار المستخدم بالتفعيل
@@ -117,13 +119,33 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             )
         except Exception as e:
             print(f"خطأ في إرسال إشعار التفعيل للمستخدم {user_id}: {e}")
-    elif data.startswith("reject_"):
-        await query.edit_message_text(f"❌ تم رفض الطلب للمستخدم {user_id}")
-        # إشعار المستخدم بالرفض
+    elif data.startswith("reject_sub_"):
+        user_id = int(data.split("_")[2])
+        await query.edit_message_text(f"❌ تم رفض طلب الاشتراك للمستخدم {user_id}")
         try:
             await bot.send_message(
                 chat_id=user_id,
-                text="⚠️ تم رفض طلبك (دفع/اشتراك). في حال وجود خطأ، يرجى التواصل مع الإدارة."
+                text="⚠️ تم رفض طلبك للاشتراك الشهري. في حال وجود خطأ، يرجى التواصل مع الإدارة."
             )
         except Exception as e:
             print(f"خطأ في إرسال إشعار الرفض للمستخدم {user_id}: {e}")
+    elif data.startswith("accept_question_"):
+        user_id = int(data.split("_")[2])
+        await query.edit_message_text(f"✅ تم قبول دفع المستخدم {user_id} لسؤال واحد.")
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text="✅ تم تأكيد دفعك وسيتم الرد عليك قريبًا على سؤالك."
+            )
+        except Exception as e:
+            print(f"خطأ في إشعار المستخدم للسؤال المدفوع {user_id}: {e}")
+    elif data.startswith("reject_question_"):
+        user_id = int(data.split("_")[2])
+        await query.edit_message_text(f"❌ تم رفض دفع المستخدم {user_id} لسؤال واحد.")
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text="⚠️ تم رفض طلبك للإجابة المدفوعة. في حال وجود خطأ يرجى التواصل مع الإدارة."
+            )
+        except Exception as e:
+            print(f"خطأ في إرسال إشعار الرفض للسؤال المدفوع {user_id}: {e}")
