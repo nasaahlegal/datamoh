@@ -6,7 +6,7 @@ from config import TOKEN, ADMIN_TELEGRAM_ID, Q_DATA
 from handlers.admin import (
     admin_stats, admin_subs, report_subscriptions,
     admin_subscription_select, admin_subs_callback, handle_admin_callback,
-    show_admin_log   # تمت إضافة هذا السطر لاستيراد أمر عرض السجل الإداري
+    show_admin_log  # تمت إضافة هذا السطر لاستيراد أمر عرض السجل الإداري
 )
 from handlers.user import (
     start, main_menu_handler, category_handler, question_number_handler,
@@ -28,8 +28,10 @@ def main():
     app.add_handler(CommandHandler("subs", admin_subs))
     app.add_handler(CommandHandler("report", report_subscriptions))
     app.add_handler(CommandHandler("show_admin_log", show_admin_log))  # تمت إضافة هذا السطر
+
+    # أوامر الأدمن فقط: استقبال رقم الاشتراك (مفلتر على الأدمن فقط)
     app.add_handler(
-        MessageHandler(filters.Regex("^[0-9]+$"), admin_subscription_select)
+        MessageHandler(filters.Regex("^[0-9]+$") & filters.User(ADMIN_TELEGRAM_ID), admin_subscription_select)
     )
     app.add_handler(
         CallbackQueryHandler(admin_subs_callback, pattern=r"^(extend|delete)_[0-9]+|subs_back$")
@@ -51,7 +53,7 @@ def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, category_handler),
             ],
             States.QUESTION.value: [
-                MessageHandler(filters.Regex("^[0-9]+$"), question_number_handler),
+                MessageHandler(filters.Regex("^[0-9]+$"), question_number_handler),  # هذا للمستخدمين فقط
                 MessageHandler(filters.Regex("^(رجوع|القائمة الرئيسية)$"), main_menu_handler),
             ],
             "PAY_CONFIRM": [
