@@ -28,7 +28,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
-@rate_limit_per_action(30)
+# لا تضع هنا أي ديكوريتر
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👇 اختر القسم المناسب من القائمة للبدء:",
@@ -199,6 +199,7 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     context.user_data.pop("awaiting_free_answer", None)
     return States.QUESTION.value
 
+@rate_limit_per_action(30)
 async def spam_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🚫 لا تقبل الروابط أو الرسائل المباشرة، يرجى استخدام أزرار البوت فقط.",
