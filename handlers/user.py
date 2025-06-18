@@ -15,10 +15,9 @@ from users import (
 )
 from states_enum import States
 
-# استيراد ديكوريتر الحماية ضد السبام
 from utils.rate_limit import rate_limit
 
-@rate_limit(60)  # حماية ضد السبام: دقيقة واحدة بين محاولات /start
+@rate_limit(30)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
@@ -29,7 +28,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
-@rate_limit(60)  # حماية ضد السبام: دقيقة واحدة بين محاولات زر القائمة الرئيسية
+@rate_limit(30)
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👇 اختر القسم المناسب من القائمة للبدء:",
@@ -38,7 +37,7 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
-@rate_limit(60)  # حماية ضد السبام: دقيقة واحدة بين محاولات العودة إلى منصة محامي.كوم
+@rate_limit(30)
 async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "للدخول إلى منصة محامي.كوم يرجى الضغط على الرابط التالي:\n\n"
@@ -47,6 +46,20 @@ async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_
     )
     return States.CATEGORY.value
 
+@rate_limit(30)
+async def about_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        ABOUT_MSG,
+        reply_markup=get_about_markup(),
+        protect_content=True
+    )
+    return States.CATEGORY.value
+
+@rate_limit(30)
+async def subscription_handler_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from handlers.payment import subscription_handler
+    return await subscription_handler(update, context)
+
 def get_answer(question_text):
     for cat, items in Q_DATA.items():
         for entry in items:
@@ -54,20 +67,13 @@ def get_answer(question_text):
                 return entry["answer"]
     return "لا توجد إجابة مسجلة لهذا السؤال."
 
-@rate_limit(60)  # حماية ضد السبام: دقيقة واحدة بين محاولات اختيار "عن المنصة" أو "اشتراك شهري"
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if text == "اشتراك شهري":
-        from handlers.payment import subscription_handler
-        return await subscription_handler(update, context)
+        return await subscription_handler_limit(update, context)  # هنا الحماية فقط على هذا الزر
     if text == "عن المنصة":
-        await update.message.reply_text(
-            ABOUT_MSG,
-            reply_markup=get_about_markup(),
-            protect_content=True
-        )
-        return States.CATEGORY.value
+        return await about_handler(update, context)  # الحماية هنا فقط
     if text in Q_DATA:
         context.user_data["category"] = text
         questions = [e["question"] for e in Q_DATA[text]]
