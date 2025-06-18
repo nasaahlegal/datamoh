@@ -15,9 +15,9 @@ from users import (
 )
 from states_enum import States
 
-from utils.rate_limit import rate_limit
+from utils.rate_limit import rate_limit_per_action
 
-@rate_limit(30)
+@rate_limit_per_action(30)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
@@ -28,7 +28,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
-@rate_limit(30)
+@rate_limit_per_action(30)
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👇 اختر القسم المناسب من القائمة للبدء:",
@@ -37,7 +37,7 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
-@rate_limit(30)
+@rate_limit_per_action(30)
 async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "للدخول إلى منصة محامي.كوم يرجى الضغط على الرابط التالي:\n\n"
@@ -46,7 +46,7 @@ async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_
     )
     return States.CATEGORY.value
 
-@rate_limit(30)
+@rate_limit_per_action(30)
 async def about_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         ABOUT_MSG,
@@ -55,7 +55,7 @@ async def about_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
-@rate_limit(30)
+@rate_limit_per_action(30)
 async def subscription_handler_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from handlers.payment import subscription_handler
     return await subscription_handler(update, context)
@@ -71,9 +71,9 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if text == "اشتراك شهري":
-        return await subscription_handler_limit(update, context)  # هنا الحماية فقط على هذا الزر
+        return await subscription_handler_limit(update, context)
     if text == "عن المنصة":
-        return await about_handler(update, context)  # الحماية هنا فقط
+        return await about_handler(update, context)
     if text in Q_DATA:
         context.user_data["category"] = text
         questions = [e["question"] for e in Q_DATA[text]]
