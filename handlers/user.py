@@ -15,11 +15,20 @@ from users import (
 )
 from states_enum import States
 
-from utils.rate_limit import rate_limit_per_action
-from utils.prevent_repeated import prevent_repeated_commands  # تم الاستيراد هنا
+async def spam_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🚫 لا تقبل الروابط أو الرسائل المباشرة، يرجى استخدام أزرار البوت فقط.",
+        protect_content=True
+    )
+    return
 
-@prevent_repeated_commands
-@rate_limit_per_action(30)
+def get_answer(question_text):
+    for cat, items in Q_DATA.items():
+        for entry in items:
+            if entry["question"] == question_text:
+                return entry["answer"]
+    return "لا توجد إجابة مسجلة لهذا السؤال."
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
@@ -30,7 +39,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
-# لا تضع هنا أي ديكوريتر
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👇 اختر القسم المناسب من القائمة للبدء:",
@@ -39,8 +47,6 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
-@prevent_repeated_commands
-@rate_limit_per_action(30)
 async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "للدخول إلى منصة محامي.كوم يرجى الضغط على الرابط التالي:\n\n"
@@ -49,37 +55,19 @@ async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_
     )
     return States.CATEGORY.value
 
-@prevent_repeated_commands
-@rate_limit_per_action(30)
-async def about_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        ABOUT_MSG,
-        reply_markup=get_about_markup(),
-        protect_content=True
-    )
-    return States.CATEGORY.value
-
-@prevent_repeated_commands
-@rate_limit_per_action(30)
-async def subscription_handler_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    from handlers.payment import subscription_handler
-    return await subscription_handler(update, context)
-
-def get_answer(question_text):
-    for cat, items in Q_DATA.items():
-        for entry in items:
-            if entry["question"] == question_text:
-                return entry["answer"]
-    return "لا توجد إجابة مسجلة لهذا السؤال."
-
-@prevent_repeated_commands
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if text == "اشتراك شهري":
-        return await subscription_handler_limit(update, context)
+        from handlers.payment import subscription_handler
+        return await subscription_handler(update, context)
     if text == "عن المنصة":
-        return await about_handler(update, context)
+        await update.message.reply_text(
+            ABOUT_MSG,
+            reply_markup=get_about_markup(),
+            protect_content=True
+        )
+        return States.CATEGORY.value
     if text in Q_DATA:
         context.user_data["category"] = text
         questions = [e["question"] for e in Q_DATA[text]]
@@ -99,7 +87,6 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
-@prevent_repeated_commands
 async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     questions = context.user_data.get("questions", [])
@@ -149,7 +136,6 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
     context.user_data["awaiting_pay_confirm"] = True
     return "PAY_CONFIRM"
 
-@prevent_repeated_commands
 async def pay_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text == "نعم" and context.user_data.get("awaiting_pay_confirm"):
@@ -165,7 +151,6 @@ async def pay_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data.pop("awaiting_pay_confirm", None)
         return await main_menu_handler(update, context)
 
-@prevent_repeated_commands
 async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_info = get_user(user.id)
@@ -195,7 +180,6 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         )
         return States.FREE_OR_SUB_CONFIRM.value
 
-@prevent_repeated_commands
 async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cat = context.user_data.get("category")
     questions = [e["question"] for e in Q_DATA.get(cat, [])]
@@ -208,12 +192,3 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     )
     context.user_data.pop("awaiting_free_answer", None)
     return States.QUESTION.value
-
-@prevent_repeated_commands
-@rate_limit_per_action(30)
-async def spam_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🚫 لا تقبل الروابط أو الرسائل المباشرة، يرجى استخدام أزرار البوت فقط.",
-        protect_content=True
-    )
-    return
