@@ -15,20 +15,10 @@ from users import (
 )
 from states_enum import States
 
-async def spam_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🚫 لا تقبل الروابط أو الرسائل المباشرة، يرجى استخدام أزرار البوت فقط.",
-        protect_content=True
-    )
-    return
+# استيراد ديكوريتر الحماية ضد السبام
+from utils.rate_limit import rate_limit
 
-def get_answer(question_text):
-    for cat, items in Q_DATA.items():
-        for entry in items:
-            if entry["question"] == question_text:
-                return entry["answer"]
-    return "لا توجد إجابة مسجلة لهذا السؤال."
-
+@rate_limit(60)  # حماية ضد السبام: دقيقة واحدة بين محاولات /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     create_or_get_user(user.id, user.username, user.full_name)
@@ -39,6 +29,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
+@rate_limit(60)  # حماية ضد السبام: دقيقة واحدة بين محاولات زر القائمة الرئيسية
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👇 اختر القسم المناسب من القائمة للبدء:",
@@ -47,6 +38,7 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return States.CATEGORY.value
 
+@rate_limit(60)  # حماية ضد السبام: دقيقة واحدة بين محاولات العودة إلى منصة محامي.كوم
 async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "للدخول إلى منصة محامي.كوم يرجى الضغط على الرابط التالي:\n\n"
@@ -55,6 +47,14 @@ async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_
     )
     return States.CATEGORY.value
 
+def get_answer(question_text):
+    for cat, items in Q_DATA.items():
+        for entry in items:
+            if entry["question"] == question_text:
+                return entry["answer"]
+    return "لا توجد إجابة مسجلة لهذا السؤال."
+
+@rate_limit(60)  # حماية ضد السبام: دقيقة واحدة بين محاولات اختيار "عن المنصة" أو "اشتراك شهري"
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
@@ -192,3 +192,10 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     )
     context.user_data.pop("awaiting_free_answer", None)
     return States.QUESTION.value
+
+async def spam_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🚫 لا تقبل الروابط أو الرسائل المباشرة، يرجى استخدام أزرار البوت فقط.",
+        protect_content=True
+    )
+    return
