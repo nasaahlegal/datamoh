@@ -107,7 +107,8 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             await bot.send_message(
                 chat_id=user_id,
-                text="🎁 تم تمديد اشتراكك لمدة 3 أيام إضافية كهدية من الإدارة."
+                text="🎁 تم تمديد اشتراكك لمدة 3 أيام إضافية كهدية من الإدارة.",
+                protect_content=True
             )
         except Exception as e:
             print(f"خطأ في إرسال إشعار التمديد للمستخدم {user_id}: {e}")
@@ -117,7 +118,8 @@ async def admin_subs_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             await bot.send_message(
                 chat_id=user_id,
-                text="⚠️ تم إلغاء اشتراكك الشهري من قبل الإدارة. إذا كان لديك اعتراض يرجى مراسلتنا."
+                text="⚠️ تم إلغاء اشتراكك الشهري من قبل الإدارة. إذا كان لديك اعتراض يرجى مراسلتنا.",
+                protect_content=True
             )
         except Exception as e:
             print(f"خطأ في إرسال إشعار الحذف للمستخدم {user_id}: {e}")
@@ -139,7 +141,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             await bot.send_message(
                 chat_id=user_id,
-                text="🎉 تم تفعيل اشتراكك بنجاح لمدة 30 يومًا! يمكنك الآن استخدام جميع الأسئلة بدون قيود."
+                text="🎉 تم تفعيل اشتراكك بنجاح لمدة 30 يومًا! يمكنك الآن استخدام جميع الأسئلة بدون قيود.",
+                protect_content=True
             )
         except Exception as e:
             print(f"خطأ في إرسال إشعار التفعيل للمستخدم {user_id}: {e}")
@@ -149,7 +152,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             await bot.send_message(
                 chat_id=user_id,
-                text="⚠️ تم رفض طلبك للاشتراك الشهري. في حال وجود خطأ، يرجى التواصل مع الإدارة."
+                text="⚠️ تم رفض طلبك للاشتراك الشهري. في حال وجود خطأ، يرجى التواصل مع الإدارة.",
+                protect_content=True
             )
         except Exception as e:
             print(f"خطأ في إرسال إشعار الرفض للمستخدم {user_id}: {e}")
@@ -160,13 +164,15 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
             answer = get_answer(question)
             await bot.send_message(
                 chat_id=user_id,
-                text=f"سؤالك:\n{question}\n\nالإجابة:\n{answer}"
+                text=f"سؤالك:\n{question}\n\nالإجابة:\n{answer}",
+                protect_content=True
             )
             delete_paid_question(user_id)
         else:
             await bot.send_message(
                 chat_id=user_id,
-                text="✅ تم تأكيد دفعك، ولكن لم نعثر على سؤالك. يرجى مراسلة الإدارة."
+                text="✅ تم تأكيد دفعك، ولكن لم نعثر على سؤالك. يرجى مراسلة الإدارة.",
+                protect_content=True
             )
         await query.edit_message_text(f"✅ تم قبول دفع المستخدم {user_id} لسؤال واحد.")
     elif data.startswith("reject_question_"):
@@ -175,7 +181,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             await bot.send_message(
                 chat_id=user_id,
-                text="⚠️ تم رفض طلبك للإجابة المدفوعة. في حال وجود خطأ يرجى التواصل مع الإدارة."
+                text="⚠️ تم رفض طلبك للإجابة المدفوعة. في حال وجود خطأ يرجى التواصل مع الإدارة.",
+                protect_content=True
             )
         except Exception as e:
             print(f"خطأ في إرسال إشعار الرفض للسؤال المدفوع {user_id}: {e}")
