@@ -1,10 +1,12 @@
 import os
 import json
 
+# متغيرات البيئة الحساسة يجب ضبطها عبر لوحة إعدادات الخدمة (مثل Render)
 TOKEN = os.environ.get("BOT_TOKEN")
 DATABASE_URL = os.environ.get("DATABASE_URL")
-ADMIN_TELEGRAM_ID = int(os.environ.get("ADMIN_TELEGRAM_ID", 8109994800))
-ADMIN_USERNAME = "mohamycom"
+ADMIN_TELEGRAM_ID = int(os.environ.get("ADMIN_TELEGRAM_ID")) if os.environ.get("ADMIN_TELEGRAM_ID") else None
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "mohamycom")
+PAY_ACCOUNT = os.environ.get("PAY_ACCOUNT")  # لا تضع أي رقم افتراضي داخل الكود!
 
 # تحميل الأسئلة والأجوبة من ملف JSON أو افتراضيًا
 Q_DATA = {}
@@ -32,7 +34,7 @@ FREE_QUESTIONS_LIMIT = 3
 QUESTION_PRICE = 5000
 SUBSCRIPTION_PRICE = 50000
 SUBSCRIPTION_DAYS = 30
-PAY_ACCOUNT = "9916153415"
+
 PAY_MSG = (
     "للاشتراك الشهري (أسئلة غير محدودة : 30 يوم)\n"
     f"المبلغ: {SUBSCRIPTION_PRICE:,} دينار\n"
@@ -40,12 +42,12 @@ PAY_MSG = (
     "عند استعدادك للتحويل اضغط (قبول الاشتراك) أو اضغط (إلغاء) أو (القائمة الرئيسية)."
 )
 PAY_ACCOUNT_MSG = (
-    f"يرجى التحويل إلى رقم الحساب: {PAY_ACCOUNT}\n"
+    f"يرجى التحويل إلى رقم الحساب: {PAY_ACCOUNT if PAY_ACCOUNT else '[لم يتم ضبط الحساب بعد]'}\n"
     "بعد التحويل اضغط زر (تم التحويل) وليس قبل ذلك."
 )
 SINGLE_PAY_MSG = (
     f"سعر الإجابة على كل سؤال: {QUESTION_PRICE:,} دينار.\n"
-    f"يرجى التحويل إلى رقم الحساب: {PAY_ACCOUNT}\n"
+    f"يرجى التحويل إلى رقم الحساب: {PAY_ACCOUNT if PAY_ACCOUNT else '[لم يتم ضبط الحساب بعد]'}\n"
     "بعد التحويل اضغط زر (تم التحويل)\n"
     "قريبًا سيتم تفعيل الدفع عبر فاست باي وزين كاش وآسيا حوالة لتسريع العملية."
 )
