@@ -7,7 +7,7 @@ from config import (
 from keyboards import (
     get_lawyer_platform_markup, get_back_main_markup,
     get_free_confirm_markup, get_payment_reply_markup, get_about_markup,
-    get_pay_confirm_markup
+    get_pay_confirm_markup, get_choose_payment_method_markup
 )
 from users import (
     create_or_get_user, get_user,
@@ -132,16 +132,46 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         context.user_data["awaiting_free_answer"] = True
         return States.FREE_OR_SUB_CONFIRM.value
 
-    # يطلب موافقة المستخدم أولاً على الدفع
+    # عرض أزرار اختيار وسيلة الدفع
     await update.message.reply_text(
-        f"طريقة الدفع: عبر تطبيق كي المدعوم من قبل مصرف الرافدين.\n"
-        f"المبلغ: {QUESTION_PRICE:,} دينار عراقي.\n"
-        "هل تقبل الدفع للإجابة على هذا السؤال؟",
-        reply_markup=get_pay_confirm_markup(),
+        "اختر طريقة الدفع المناسبة:",
+        reply_markup=get_choose_payment_method_markup(),
         protect_content=True
     )
-    context.user_data["awaiting_pay_confirm"] = True
-    return "PAY_CONFIRM"
+    context.user_data["awaiting_payment_method"] = True
+    return "CHOOSE_PAYMENT_METHOD"
+
+@anti_spam()
+async def choose_payment_method_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if context.user_data.get("awaiting_payment_method"):
+        if text == "التحويل اليدوي":
+            from keyboards import get_pay_confirm_markup
+            await update.message.reply_text(
+                f"طريقة الدفع: عبر تطبيق كي المدعوم من قبل مصرف الرافدين.\n"
+                f"المبلغ: {QUESTION_PRICE:,} دينار عراقي.\n"
+                "هل تقبل الدفع للإجابة على هذا السؤال؟",
+                reply_markup=get_pay_confirm_markup(),
+                protect_content=True
+            )
+            context.user_data["awaiting_pay_confirm"] = True
+            context.user_data.pop("awaiting_payment_method", None)
+            return "PAY_CONFIRM"
+        elif text == "الدفع الإلكتروني":
+            from handlers.electronic_payment import electronic_payment_handler
+            context.user_data.pop("awaiting_payment_method", None)
+            return await electronic_payment_handler(update, context)
+        elif text in ["رجوع", "القائمة الرئيسية"]:
+            context.user_data.pop("awaiting_payment_method", None)
+            return await main_menu_handler(update, context)
+        else:
+            from keyboards import get_choose_payment_method_markup
+            await update.message.reply_text(
+                "يرجى اختيار طريقة الدفع من الأزرار فقط.",
+                reply_markup=get_choose_payment_method_markup(),
+                protect_content=True
+            )
+            return "CHOOSE_PAYMENT_METHOD"
 
 @anti_spam()
 async def pay_confirm_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

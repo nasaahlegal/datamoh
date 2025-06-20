@@ -56,3 +56,9 @@ def get_sub_admin_options_markup(user_id):
            InlineKeyboardButton("⬅️ رجوع", callback_data="subs_back")
         ]
     ])
+
+def get_choose_payment_method_markup():
+    return ReplyKeyboardMarkup(
+        [["التحويل اليدوي", "الدفع الإلكتروني"], ["رجوع", "القائمة الرئيسية"]],
+        resize_keyboard=True
+    )
