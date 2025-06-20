@@ -6,17 +6,18 @@ from config import TOKEN, ADMIN_TELEGRAM_ID, Q_DATA
 from handlers.admin import (
     admin_stats, admin_subs, report_subscriptions,
     admin_subscription_select, admin_subs_callback, handle_admin_callback,
-    show_admin_log  # تمت إضافة هذا السطر لاستيراد أمر عرض السجل الإداري
+    show_admin_log
 )
 from handlers.user import (
     start, main_menu_handler, category_handler, question_number_handler,
     confirm_free_or_sub_use_handler, back_to_questions_handler,
     lawyer_platform_handler, spam_handler, pay_confirm_handler,
-    choose_payment_method_handler  # استيراد الهاندلر الجديد
+    choose_payment_method_handler
 )
 from handlers.payment import (
     subscription_handler, subscription_confirm, payment_handler
 )
+from handlers.electronic_payment import electronic_payment_handler
 from states_enum import States
 from users import init_users_db
 
@@ -28,7 +29,7 @@ def main():
     app.add_handler(CommandHandler("admin", admin_stats))
     app.add_handler(CommandHandler("subs", admin_subs))
     app.add_handler(CommandHandler("report", report_subscriptions))
-    app.add_handler(CommandHandler("show_admin_log", show_admin_log))  # تمت إضافة هذا السطر
+    app.add_handler(CommandHandler("show_admin_log", show_admin_log))
 
     # أوامر الأدمن فقط: استقبال رقم الاشتراك (مفلتر على الأدمن فقط)
     app.add_handler(
@@ -54,7 +55,7 @@ def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, category_handler),
             ],
             States.QUESTION.value: [
-                MessageHandler(filters.Regex("^[0-9]+$"), question_number_handler),  # هذا للمستخدمين فقط
+                MessageHandler(filters.Regex("^[0-9]+$"), question_number_handler),
                 MessageHandler(filters.Regex("^(رجوع|القائمة الرئيسية)$"), main_menu_handler),
             ],
             "CHOOSE_PAYMENT_METHOD": [

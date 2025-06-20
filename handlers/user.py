@@ -159,8 +159,9 @@ async def choose_payment_method_handler(update: Update, context: ContextTypes.DE
             return "PAY_CONFIRM"
         elif text == "الدفع الإلكتروني":
             from handlers.electronic_payment import electronic_payment_handler
-            context.user_data.pop("awaiting_payment_method", None)
-            return await electronic_payment_handler(update, context)
+            await electronic_payment_handler(update, context)
+            # لا تفرغ awaiting_payment_method هنا حتى يبقى المستخدم في نفس الحالة
+            return "CHOOSE_PAYMENT_METHOD"
         elif text in ["رجوع", "القائمة الرئيسية"]:
             context.user_data.pop("awaiting_payment_method", None)
             return await main_menu_handler(update, context)

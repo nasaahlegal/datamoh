@@ -8,4 +8,5 @@ async def electronic_payment_handler(update: Update, context: ContextTypes.DEFAU
         "يمكنك العودة واختيار التحويل اليدوي حالياً.",
         protect_content=True
     )
-    return None
+    # يعيد المستخدم لنفس الحالة ليبقى في خيارات الدفع
+    return "CHOOSE_PAYMENT_METHOD"
