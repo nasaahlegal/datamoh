@@ -5,10 +5,9 @@ from config import (
     ABOUT_MSG, WELCOME_MSG, SINGLE_PAY_MSG, ADMIN_TELEGRAM_ID
 )
 from keyboards import (
-    get_main_categories_markup, get_back_main_markup,
+    get_lawyer_platform_markup, get_back_main_markup,
     get_free_confirm_markup, get_payment_reply_markup, get_about_markup,
-    get_pay_confirm_markup, get_choose_payment_method_markup,
-    get_subcategories_markup
+    get_pay_confirm_markup, get_choose_payment_method_markup
 )
 from users import (
     create_or_get_user, get_user,
@@ -16,7 +15,7 @@ from users import (
 )
 from states_enum import States
 
-from utils.anti_spam import anti_spam
+from utils.anti_spam import anti_spam  # استيراد الديكوريتر الجديد
 
 async def spam_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -26,11 +25,10 @@ async def spam_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 def get_answer(question_text):
-    for main_cat in Q_DATA.values():
-        for sub_cat in main_cat.values():
-            for entry in sub_cat:
-                if entry["question"] == question_text:
-                    return entry["answer"]
+    for cat, items in Q_DATA.items():
+        for entry in items:
+            if entry["question"] == question_text:
+                return entry["answer"]
     return "لا توجد إجابة مسجلة لهذا السؤال."
 
 @anti_spam()
@@ -39,7 +37,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     create_or_get_user(user.id, user.username, user.full_name)
     await update.message.reply_text(
         WELCOME_MSG,
-        reply_markup=get_main_categories_markup(),
+        reply_markup=get_lawyer_platform_markup(Q_DATA),
         protect_content=True
     )
     return States.CATEGORY.value
@@ -48,7 +46,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👇 اختر القسم المناسب من القائمة للبدء:",
-        reply_markup=get_main_categories_markup(),
+        reply_markup=get_lawyer_platform_markup(Q_DATA),
         protect_content=True
     )
     return States.CATEGORY.value
@@ -76,79 +74,24 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             protect_content=True
         )
         return States.CATEGORY.value
-    if text == "العودة إلى منصة محاميكم":
-        return await lawyer_platform_handler(update, context)
-    if text == "القائمة الرئيسية":
-        return await main_menu_handler(update, context)
-
-    main_categories = ["الأسرة", "مدني", "الوظيفة والعمل", "جنائي"]
-    
-    if text in main_categories:
-        context.user_data["main_category"] = text
-        subcategories = list(Q_DATA.get(text, {}).keys())
-        if not subcategories:
-            await update.message.reply_text(
-                "لا توجد تصنيفات فرعية متاحة حالياً.",
-                reply_markup=get_back_main_markup(),
-                protect_content=True
-            )
-            return States.CATEGORY.value
-        context.user_data["subcategories"] = subcategories
+    if text in Q_DATA:
+        context.user_data["category"] = text
+        questions = [e["question"] for e in Q_DATA[text]]
+        context.user_data["questions"] = questions
+        numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
         await update.message.reply_text(
-            f"اختر تصنيفاً فرعياً من قائمة {text}:",
-            reply_markup=get_subcategories_markup(subcategories),
+            f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
+            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            reply_markup=get_back_main_markup(),
             protect_content=True
         )
-        return "SUBCATEGORY"
-
+        return States.QUESTION.value
     await update.message.reply_text(
         "يرجى اختيار تصنيف صحيح.",
-        reply_markup=get_main_categories_markup(),
+        reply_markup=get_lawyer_platform_markup(Q_DATA),
         protect_content=True
     )
     return States.CATEGORY.value
-
-@anti_spam()
-async def subcategory_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text == "رجوع":
-        return await main_menu_handler(update, context)
-    if text == "القائمة الرئيسية":
-        return await main_menu_handler(update, context)
-
-    main_category = context.user_data.get("main_category")
-    if not main_category:
-        return await main_menu_handler(update, context)
-
-    subcategories = context.user_data.get("subcategories", [])
-    if text not in subcategories:
-        await update.message.reply_text(
-            "يرجى اختيار تصنيف فرعي صحيح.",
-            reply_markup=get_subcategories_markup(subcategories),
-            protect_content=True
-        )
-        return "SUBCATEGORY"
-
-    context.user_data["subcategory"] = text
-    questions_data = Q_DATA.get(main_category, {}).get(text, [])
-    questions = [q["question"] for q in questions_data]
-    if not questions:
-        await update.message.reply_text(
-            "لا توجد أسئلة في هذا التصنيف حالياً.",
-            reply_markup=get_subcategories_markup(subcategories),
-            protect_content=True
-        )
-        return "SUBCATEGORY"
-
-    context.user_data["questions"] = questions
-    numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
-    await update.message.reply_text(
-        f"الأسئلة المتوفرة في تصنيف {text}:\n\n{numbered}\n\n"
-        "أرسل رقم السؤال للاطلاع على جوابه.",
-        reply_markup=get_back_main_markup(),
-        protect_content=True
-    )
-    return States.QUESTION.value
 
 @anti_spam()
 async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -173,7 +116,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         answer = get_answer(question)
         await update.message.reply_text(
             f"الإجابة:\n{answer}",
-            reply_markup=get_main_categories_markup(),
+            reply_markup=get_lawyer_platform_markup(Q_DATA),
             protect_content=True
         )
         return States.CATEGORY.value
@@ -189,6 +132,7 @@ async def question_number_handler(update: Update, context: ContextTypes.DEFAULT_
         context.user_data["awaiting_free_answer"] = True
         return States.FREE_OR_SUB_CONFIRM.value
 
+    # عرض أزرار اختيار وسيلة الدفع
     await update.message.reply_text(
         "اختر طريقة الدفع المناسبة:",
         reply_markup=get_choose_payment_method_markup(),
@@ -216,6 +160,7 @@ async def choose_payment_method_handler(update: Update, context: ContextTypes.DE
         elif text == "الدفع الإلكتروني":
             from handlers.electronic_payment import electronic_payment_handler
             await electronic_payment_handler(update, context)
+            # لا تفرغ awaiting_payment_method هنا حتى يبقى المستخدم في نفس الحالة
             return "CHOOSE_PAYMENT_METHOD"
         elif text in ["رجوع", "القائمة الرئيسية"]:
             context.user_data.pop("awaiting_payment_method", None)
@@ -258,7 +203,7 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
         answer = get_answer(pending_answer)
         await update.message.reply_text(
             f"الإجابة:\n{answer}\n\n(تبقى لديك {left} سؤال مجاني)",
-            reply_markup=get_main_categories_markup(),
+            reply_markup=get_lawyer_platform_markup(Q_DATA),
             protect_content=True
         )
         context.user_data.pop("awaiting_free_answer", None)
@@ -277,16 +222,11 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
 
 @anti_spam()
 async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    main_category = context.user_data.get("main_category")
-    subcategory = context.user_data.get("subcategory")
-    if not main_category or not subcategory:
-        return await main_menu_handler(update, context)
-    
-    questions_data = Q_DATA.get(main_category, {}).get(subcategory, [])
-    questions = [q["question"] for q in questions_data]
+    cat = context.user_data.get("category")
+    questions = [e["question"] for e in Q_DATA.get(cat, [])]
     numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
     await update.message.reply_text(
-        f"الأسئلة المتوفرة في تصنيف {subcategory}:\n\n{numbered}\n\n"
+        f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
         "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
         reply_markup=get_back_main_markup(),
         protect_content=True
