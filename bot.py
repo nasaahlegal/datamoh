@@ -12,7 +12,7 @@ from handlers.user import (
     start, main_menu_handler, category_handler, question_number_handler,
     confirm_free_or_sub_use_handler, back_to_questions_handler,
     lawyer_platform_handler, spam_handler, pay_confirm_handler,
-    choose_payment_method_handler
+    choose_payment_method_handler, subcategory_handler
 )
 from handlers.payment import (
     subscription_handler, subscription_confirm, payment_handler
@@ -25,13 +25,11 @@ def main():
     init_users_db()
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # أوامر الأدمن (بدون فلتر صلاحيات، الحماية تتم في الديكوريتر)
     app.add_handler(CommandHandler("admin", admin_stats))
     app.add_handler(CommandHandler("subs", admin_subs))
     app.add_handler(CommandHandler("report", report_subscriptions))
     app.add_handler(CommandHandler("show_admin_log", show_admin_log))
 
-    # أوامر الأدمن فقط: استقبال رقم الاشتراك (مفلتر على الأدمن فقط)
     app.add_handler(
         MessageHandler(filters.Regex("^[0-9]+$") & filters.User(ADMIN_TELEGRAM_ID), admin_subscription_select)
     )
@@ -42,17 +40,19 @@ def main():
         CallbackQueryHandler(handle_admin_callback, pattern=r"^(accept|reject)_(sub|question)_\d+$")
     )
 
-    # ConversationHandler للمستخدمين
     conv = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
             MessageHandler(filters.Regex("^(القائمة الرئيسية)$"), main_menu_handler),
-            MessageHandler(filters.Regex("^(العودة إلى منصة محامي.كوم)$"), lawyer_platform_handler),
+            MessageHandler(filters.Regex("^(العودة إلى منصة محاميكم)$"), lawyer_platform_handler),
         ],
         states={
             States.CATEGORY.value: [
-                MessageHandler(filters.Regex("^(عن المنصة|اشتراك شهري)$"), category_handler),
+                MessageHandler(filters.Regex("^(عن المنصة|اشتراك شهري|العودة إلى منصة محاميكم|القائمة الرئيسية)$"), category_handler),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, category_handler),
+            ],
+            "SUBCATEGORY": [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, subcategory_handler),
             ],
             States.QUESTION.value: [
                 MessageHandler(filters.Regex("^[0-9]+$"), question_number_handler),
@@ -78,7 +78,7 @@ def main():
         },
         fallbacks=[
             MessageHandler(filters.Regex("^(القائمة الرئيسية)$"), main_menu_handler),
-            MessageHandler(filters.Regex("^(العودة إلى منصة محامي.كوم)$"), lawyer_platform_handler),
+            MessageHandler(filters.Regex("^(العودة إلى منصة محاميكم)$"), lawyer_platform_handler),
             CommandHandler("start", start),
             MessageHandler(filters.ALL, main_menu_handler),
         ],
@@ -86,7 +86,6 @@ def main():
     )
     app.add_handler(conv)
 
-    # ضع spam_handler بعد الكل كي لا يعترض رسائل الأزرار
     app.add_handler(MessageHandler(filters.Entity("url"), spam_handler))
 
     app.run_polling()

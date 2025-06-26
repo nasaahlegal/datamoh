@@ -1,20 +1,23 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
-def get_categories_markup(categories):
-    keys = list(categories.keys())
+def get_main_categories_markup():
+    keys = ["الأسرة", "مدني", "الوظيفة والعمل", "جنائي", "عن المنصة", "اشتراك شهري"]
     markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
-    markup_arr.append(["اشتراك شهري", "عن المنصة"])
-    markup_arr.append(["القائمة الرئيسية"])
+    markup_arr.append(["العودة إلى منصة محاميكم", "القائمة الرئيسية"])
     return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
 
+def get_categories_markup(categories):
+    return get_main_categories_markup()
+
 def get_main_menu_markup(categories):
-    return get_categories_markup(categories)
+    return get_main_categories_markup()
 
 def get_lawyer_platform_markup(categories):
-    keys = list(categories.keys())
-    markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
-    markup_arr.append(["اشتراك شهري", "عن المنصة"])
-    markup_arr.append(["العودة إلى منصة محامي.كوم", "القائمة الرئيسية"])
+    return get_main_categories_markup()
+
+def get_subcategories_markup(subcategories):
+    markup_arr = [subcategories[i:i+2] for i in range(0, len(subcategories), 2)]
+    markup_arr.append(["رجوع", "القائمة الرئيسية"])
     return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
 
 def get_back_main_markup():
@@ -36,9 +39,6 @@ def get_pay_confirm_markup():
     return ReplyKeyboardMarkup([["نعم"], ["لا", "رجوع"]], resize_keyboard=True)
 
 def get_admin_decision_markup(user_id, req_type="sub"):
-    """
-    req_type: "sub" للاشتراك الشهري، "question" لسؤال مدفوع
-    """
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ قبول", callback_data=f"accept_{req_type}_{user_id}"),
