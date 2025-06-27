@@ -100,7 +100,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
             await update.message.reply_text(
                 f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
-                "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+                "أرسل رقم السؤال (باللغة الانجليزية) للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
                 reply_markup=get_back_main_markup(),
                 protect_content=True
             )
@@ -121,7 +121,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
         await update.message.reply_text(
             f"الأسئلة المتوفرة ضمن قسم [عقارات]:\n\n{numbered}\n\n"
-            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            "أرسل رقم السؤال (باللغة الانجليزية) للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
             reply_markup=get_back_main_markup(),
             protect_content=True
         )
@@ -142,7 +142,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
         await update.message.reply_text(
             f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
-            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            "أرسل رقم السؤال (باللغة الانجليزية) للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
             reply_markup=get_back_main_markup(),
             protect_content=True
         )
@@ -163,7 +163,7 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
         await update.message.reply_text(
             f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
-            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            "أرسل رقم السؤال (باللغة الانجليزية) للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
             reply_markup=get_back_main_markup(),
             protect_content=True
         )
@@ -353,7 +353,7 @@ async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAUL
     numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
     await update.message.reply_text(
         f"الأسئلة المتوفرة ضمن القسم الحالي:\n\n{numbered}\n\n"
-        "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+        "أرسل رقم السؤال (باللغة الانجليزية) للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
         reply_markup=get_back_main_markup(),
         protect_content=True
     )
