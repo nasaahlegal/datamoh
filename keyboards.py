@@ -1,21 +1,37 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
+MAIN_CATEGORIES = [
+    "جنائي", "مدني", "الأسرة", "الوظيفة والعمل", "عن المنصة", "اشتراك شهري", "القائمة الرئيسية", "العودة إلى منصة محاميكم"
+]
+
+SUB_CATEGORIES = {
+    "مدني": ["عقارات"],
+    "الأسرة": ["الزواج", "الطلاق", "النفقة", "الحضانة", "النسب"],
+    "الوظيفة والعمل": ["قضايا الموظفين", "القطاع الخاص"]
+}
+
 def get_categories_markup(categories):
-    keys = list(categories.keys())
-    markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
-    markup_arr.append(["اشتراك شهري", "عن المنصة"])
-    markup_arr.append(["القائمة الرئيسية"])
+    markup_arr = []
+    for cat in MAIN_CATEGORIES[:4]:  # جنائي، مدني، الأسرة، الوظيفة والعمل
+        markup_arr.append([cat])
+    markup_arr.append([MAIN_CATEGORIES[4], MAIN_CATEGORIES[5]])  # عن المنصة، اشتراك شهري
+    markup_arr.append([MAIN_CATEGORIES[6]])  # القائمة الرئيسية
+    markup_arr.append([MAIN_CATEGORIES[7]])  # العودة إلى منصة محاميكم
     return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
+
+def get_subcategories_markup(main_category):
+    subcats = SUB_CATEGORIES.get(main_category, [])
+    if subcats:
+        markup_arr = [[sub] for sub in subcats]
+        markup_arr.append(["رجوع", "القائمة الرئيسية"])
+        return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
+    return get_categories_markup({})  # fallback
 
 def get_main_menu_markup(categories):
     return get_categories_markup(categories)
 
 def get_lawyer_platform_markup(categories):
-    keys = list(categories.keys())
-    markup_arr = [keys[i:i+2] for i in range(0, len(keys), 2)]
-    markup_arr.append(["اشتراك شهري", "عن المنصة"])
-    markup_arr.append(["العودة إلى منصة محاميكم", "القائمة الرئيسية"])
-    return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
+    return get_categories_markup(categories)
 
 def get_back_main_markup():
     return ReplyKeyboardMarkup([["رجوع", "القائمة الرئيسية"]], resize_keyboard=True)
@@ -36,9 +52,6 @@ def get_pay_confirm_markup():
     return ReplyKeyboardMarkup([["نعم"], ["لا", "رجوع"]], resize_keyboard=True)
 
 def get_admin_decision_markup(user_id, req_type="sub"):
-    """
-    req_type: "sub" للاشتراك الشهري، "question" لسؤال مدفوع
-    """
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ قبول", callback_data=f"accept_{req_type}_{user_id}"),

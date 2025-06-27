@@ -7,7 +7,8 @@ from config import (
 from keyboards import (
     get_lawyer_platform_markup, get_back_main_markup,
     get_free_confirm_markup, get_payment_reply_markup, get_about_markup,
-    get_pay_confirm_markup, get_choose_payment_method_markup
+    get_pay_confirm_markup, get_choose_payment_method_markup,
+    get_categories_markup, get_subcategories_markup
 )
 from users import (
     create_or_get_user, get_user,
@@ -25,10 +26,17 @@ async def spam_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return
 
 def get_answer(question_text):
+    # يدعم جميع البنى الجديدة للأسئلة
     for cat, items in Q_DATA.items():
-        for entry in items:
-            if entry["question"] == question_text:
-                return entry["answer"]
+        if isinstance(items, dict):
+            for subcat, subitems in items.items():
+                for entry in subitems:
+                    if entry["question"] == question_text:
+                        return entry["answer"]
+        elif isinstance(items, list):
+            for entry in items:
+                if entry["question"] == question_text:
+                    return entry["answer"]
     return "لا توجد إجابة مسجلة لهذا السؤال."
 
 @anti_spam()
@@ -63,7 +71,114 @@ async def lawyer_platform_handler(update: Update, context: ContextTypes.DEFAULT_
 @anti_spam()
 async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    QDATA = Q_DATA
 
+    # إذا اختار قسم رئيسي فيه فروع
+    if text in ["مدني", "الأسرة", "الوظيفة والعمل"]:
+        await update.message.reply_text(
+            f"يرجى اختيار القسم الفرعي من [{text}]:",
+            reply_markup=get_subcategories_markup(text),
+            protect_content=True
+        )
+        context.user_data["main_category"] = text
+        return States.CATEGORY.value
+
+    # إذا اختار قسم فرعي من الأقسام المدمجة
+    main_cat = context.user_data.get("main_category")
+    if main_cat and main_cat in QDATA and isinstance(QDATA[main_cat], dict):
+        if text in QDATA[main_cat]:
+            context.user_data["category"] = (main_cat, text)
+            questions = [e["question"] for e in QDATA[main_cat][text]]
+            if not questions:
+                await update.message.reply_text(
+                    f"لا توجد أسئلة متوفرة في هذا القسم حالياً.",
+                    reply_markup=get_back_main_markup(),
+                    protect_content=True
+                )
+                return States.QUESTION.value
+            context.user_data["questions"] = questions
+            numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+            await update.message.reply_text(
+                f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
+                "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+                reply_markup=get_back_main_markup(),
+                protect_content=True
+            )
+            return States.QUESTION.value
+
+    # إذا اختار زر عقارات تحت مدني
+    if main_cat == "مدني" and text == "عقارات":
+        context.user_data["category"] = (main_cat, text)
+        questions = [e["question"] for e in QDATA[main_cat]]
+        context.user_data["questions"] = questions
+        if not questions:
+            await update.message.reply_text(
+                f"لا توجد أسئلة متوفرة في هذا القسم حالياً.",
+                reply_markup=get_back_main_markup(),
+                protect_content=True
+            )
+            return States.QUESTION.value
+        numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+        await update.message.reply_text(
+            f"الأسئلة المتوفرة ضمن قسم [عقارات]:\n\n{numbered}\n\n"
+            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            reply_markup=get_back_main_markup(),
+            protect_content=True
+        )
+        return States.QUESTION.value
+
+    # إذا اختار زر فرعي من الأسرة
+    if main_cat == "الأسرة" and text in QDATA[main_cat]:
+        context.user_data["category"] = (main_cat, text)
+        questions = [e["question"] for e in QDATA[main_cat][text]]
+        context.user_data["questions"] = questions
+        if not questions:
+            await update.message.reply_text(
+                f"لا توجد أسئلة متوفرة في هذا القسم حالياً.",
+                reply_markup=get_back_main_markup(),
+                protect_content=True
+            )
+            return States.QUESTION.value
+        numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+        await update.message.reply_text(
+            f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
+            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            reply_markup=get_back_main_markup(),
+            protect_content=True
+        )
+        return States.QUESTION.value
+
+    # إذا اختار زر فرعي من الوظيفة والعمل
+    if main_cat == "الوظيفة والعمل" and text in QDATA[main_cat]:
+        context.user_data["category"] = (main_cat, text)
+        questions = [e["question"] for e in QDATA[main_cat][text]]
+        context.user_data["questions"] = questions
+        if not questions:
+            await update.message.reply_text(
+                f"لا توجد أسئلة متوفرة في هذا القسم حالياً.",
+                reply_markup=get_back_main_markup(),
+                protect_content=True
+            )
+            return States.QUESTION.value
+        numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+        await update.message.reply_text(
+            f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
+            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            reply_markup=get_back_main_markup(),
+            protect_content=True
+        )
+        return States.QUESTION.value
+
+    # إذا اختار زر رئيسي مباشرة (جنائي)
+    if text == "جنائي":
+        await update.message.reply_text(
+            "لا توجد أسئلة متوفرة في هذا القسم حالياً.",
+            reply_markup=get_back_main_markup(),
+            protect_content=True
+        )
+        return States.CATEGORY.value
+
+    # إذا اختار "عن المنصة" أو "اشتراك شهري" أو غيرها
     if text == "اشتراك شهري":
         from handlers.payment import subscription_handler
         return await subscription_handler(update, context)
@@ -74,23 +189,23 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             protect_content=True
         )
         return States.CATEGORY.value
-    if text in Q_DATA:
-        context.user_data["category"] = text
-        questions = [e["question"] for e in Q_DATA[text]]
-        context.user_data["questions"] = questions
-        numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+
+    if text in ["رجوع"]:
         await update.message.reply_text(
-            f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
-            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
-            reply_markup=get_back_main_markup(),
+            "👇 اختر القسم المناسب من القائمة للبدء:",
+            reply_markup=get_categories_markup(QDATA),
             protect_content=True
         )
-        return States.QUESTION.value
+        context.user_data.pop("main_category", None)
+        return States.CATEGORY.value
+
+    # fallback
     await update.message.reply_text(
         "يرجى اختيار تصنيف صحيح.",
-        reply_markup=get_lawyer_platform_markup(Q_DATA),
+        reply_markup=get_categories_markup(QDATA),
         protect_content=True
     )
+    context.user_data.pop("main_category", None)
     return States.CATEGORY.value
 
 @anti_spam()
@@ -223,10 +338,21 @@ async def confirm_free_or_sub_use_handler(update: Update, context: ContextTypes.
 @anti_spam()
 async def back_to_questions_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cat = context.user_data.get("category")
-    questions = [e["question"] for e in Q_DATA.get(cat, [])]
+    QDATA = Q_DATA
+    questions = []
+    if cat:
+        if isinstance(cat, tuple) and len(cat) == 2:
+            # بنية الأقسام الفرعية
+            main_cat, sub_cat = cat
+            if main_cat in QDATA and isinstance(QDATA[main_cat], dict) and sub_cat in QDATA[main_cat]:
+                questions = [e["question"] for e in QDATA[main_cat][sub_cat]]
+        elif isinstance(cat, tuple) and len(cat) == 1:
+            main_cat = cat[0]
+            if main_cat in QDATA and isinstance(QDATA[main_cat], list):
+                questions = [e["question"] for e in QDATA[main_cat]]
     numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
     await update.message.reply_text(
-        f"الأسئلة المتوفرة ضمن قسم [{cat}]:\n\n{numbered}\n\n"
+        f"الأسئلة المتوفرة ضمن القسم الحالي:\n\n{numbered}\n\n"
         "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
         reply_markup=get_back_main_markup(),
         protect_content=True
