@@ -11,18 +11,21 @@ SUB_CATEGORIES = {
 }
 
 def get_categories_markup(categories):
-    markup_arr = []
-    for cat in MAIN_CATEGORIES[:4]:  # جنائي، مدني، الأسرة، الوظيفة والعمل
-        markup_arr.append([cat])
-    markup_arr.append([MAIN_CATEGORIES[4], MAIN_CATEGORIES[5]])  # عن المنصة، اشتراك شهري
-    markup_arr.append([MAIN_CATEGORIES[6]])  # القائمة الرئيسية
-    markup_arr.append([MAIN_CATEGORIES[7]])  # العودة إلى منصة محاميكم
+    # ترتيب الأزرار الرئيسية في صفوف من زرين
+    buttons = [
+        "جنائي", "مدني",
+        "الأسرة", "الوظيفة والعمل",
+        "عن المنصة", "اشتراك شهري",
+        "القائمة الرئيسية", "العودة إلى منصة محاميكم"
+    ]
+    markup_arr = [buttons[i:i+2] for i in range(0, len(buttons), 2)]
     return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
 
 def get_subcategories_markup(main_category):
     subcats = SUB_CATEGORIES.get(main_category, [])
     if subcats:
-        markup_arr = [[sub] for sub in subcats]
+        # ترتيب الأزرار الفرعية في صفوف من زرين
+        markup_arr = [subcats[i:i+2] for i in range(0, len(subcats), 2)]
         markup_arr.append(["رجوع", "القائمة الرئيسية"])
         return ReplyKeyboardMarkup(markup_arr, resize_keyboard=True)
     return get_categories_markup({})  # fallback
