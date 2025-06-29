@@ -83,6 +83,27 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["main_category"] = text
         return States.CATEGORY.value
 
+    # إذا اختار قسم رئيسي عبارة عن قائمة أسئلة مباشرة (مثل جنائي أو مدني)
+    if text in QDATA and isinstance(QDATA[text], list):
+        context.user_data["category"] = (text,)
+        questions = [e["question"] for e in QDATA[text]]
+        if not questions:
+            await update.message.reply_text(
+                f"لا توجد أسئلة متوفرة في هذا القسم حالياً.",
+                reply_markup=get_back_main_markup(),
+                protect_content=True
+            )
+            return States.QUESTION.value
+        context.user_data["questions"] = questions
+        numbered = "\n".join([f"{i+1}. {q}" for i, q in enumerate(questions)])
+        await update.message.reply_text(
+            f"الأسئلة المتوفرة ضمن قسم [{text}]:\n\n{numbered}\n\n"
+            "أرسل رقم السؤال للاطلاع على جوابه، أو أرسل (رجوع) أو (القائمة الرئيسية) للعودة.",
+            reply_markup=get_back_main_markup(),
+            protect_content=True
+        )
+        return States.QUESTION.value
+
     # إذا اختار قسم فرعي من الأقسام المدمجة
     main_cat = context.user_data.get("main_category")
     if main_cat and main_cat in QDATA and isinstance(QDATA[main_cat], dict):
@@ -168,15 +189,6 @@ async def category_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             protect_content=True
         )
         return States.QUESTION.value
-
-    # إذا اختار زر رئيسي مباشرة (جنائي)
-    if text == "جنائي":
-        await update.message.reply_text(
-            "لا توجد أسئلة متوفرة في هذا القسم حالياً.",
-            reply_markup=get_back_main_markup(),
-            protect_content=True
-        )
-        return States.CATEGORY.value
 
     # إذا اختار "عن المنصة" أو "اشتراك شهري" أو غيرها
     if text == "اشتراك شهري":
