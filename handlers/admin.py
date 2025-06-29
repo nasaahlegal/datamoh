@@ -15,12 +15,20 @@ from telegram.constants import ParseMode
 
 admin_active_subs_cache = {}
 
+# دالة get_answer الآمنة
 def get_answer(question_text):
     for cat, items in Q_DATA.items():
-        for entry in items:
-            if entry["question"] == question_text:
-                return entry["answer"]
+        if isinstance(items, dict):
+            for subcat, subitems in items.items():
+                for entry in subitems:
+                    if isinstance(entry, dict) and entry.get("question") == question_text:
+                        return entry.get("answer")
+        elif isinstance(items, list):
+            for entry in items:
+                if isinstance(entry, dict) and entry.get("question") == question_text:
+                    return entry.get("answer")
     return "❓ لا توجد إجابة مسجلة لهذا السؤال."
+
 
 @is_admin_only
 @log_admin_action("admin_stats")
